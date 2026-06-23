@@ -1,15 +1,15 @@
 ---
 name: audit-autopilot
-description: Post-hoc audit of autopilot execution fidelity. Analyzes OpenCode session traces to evaluate how faithfully the autopilot workflow executed against its contract, surfacing errors, friction, and drift with traceable evidence anchors. Use when the user wants to audit an autopilot run, analyze session quality, check if autopilot did what it was supposed to, or provides a session ID from an autopilot execution.
+description: Post-hoc audit of autopilot execution fidelity. Analyzes agent session traces to evaluate how faithfully the autopilot workflow executed against its contract, surfacing errors, friction, and drift with traceable evidence anchors. Use when the user wants to audit an autopilot run, analyze session quality, check if autopilot did what it was supposed to, or provides a session ID from an autopilot execution.
 ---
 
 # Audit Autopilot
 
-Audit an autopilot execution by analyzing its OpenCode session trace. The audit evaluates three layers of fidelity, producing a structured scorecard with evidence anchors back to the raw session data.
+Audit an autopilot execution by analyzing its agent session trace. The audit evaluates three layers of fidelity, producing a structured scorecard with evidence anchors back to the raw session data.
 
 ## When to use
 
-Run after an `/autopilot` session completes. User provides the orchestrator session ID (find it with `TODO: reasonix session export — TBD`). Do not use for non-autopilot sessions.
+Run after an `/autopilot` session completes. User provides the orchestrator session ID (find it with the `list_sessions` tool — browse recent sessions and filter by autopilot-related titles). Do not use for non-autopilot sessions.
 
 ## Workflow
 
@@ -21,20 +21,13 @@ If not provided, ask the user for:
 - **Orchestrator session ID** (required) — the session where `/autopilot` was invoked
 - **Project directory** (optional, defaults to cwd) — where `.scratch/` issues and contracts live
 
-If the user doesn't know the session ID, help them find it:
-```bash
-TODO: reasonix session list — TBD
-```
-Look for sessions with titles matching autopilot invocations or issue names.
+If the user doesn't know the session ID, help them find it: use the `list_sessions` tool to browse available sessions. Look for sessions with titles matching autopilot invocations or issue names.
 
 If the user has already specified subagent session IDs or contract file paths, use them directly rather than re-discovering them.
 
 ### Step 1: Export and parse sessions
 
-Export the orchestrator session:
-```bash
-TODO: reasonix session export — TBD
-```
+Export the orchestrator session using the `read_session(session_id)` tool. This retrieves the full JSONL conversation trace including all tool calls and messages.
 
 Parse this JSON to extract key metadata:
 - **Issue sources**: Find paths like `.scratch/<feature>/issues/<NN-slug>/` or GitHub issue numbers in the user's initial messages
@@ -43,10 +36,7 @@ Parse this JSON to extract key metadata:
 
 For GitHub issues, the contract is embedded in the orchestrator's prompt text — extract it directly.
 
-**If the user already specified subagent session IDs**, skip the discovery step and use the provided IDs directly. Export each subagent session:
-```bash
-TODO: reasonix session export — TBD
-```
+**If the user already specified subagent session IDs**, skip the discovery step and use the provided IDs directly. Export each subagent session using the `read_session(subagent_session_id)` tool. This retrieves the full JSONL conversation trace for that subagent.
 
 ### Step 2: Load contracts
 
