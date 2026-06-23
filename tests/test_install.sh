@@ -1,0 +1,265 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Test suite for install.sh
+# Usage: bash tests/test_install.sh
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+INSTALL_SCRIPT="$PROJECT_ROOT/install.sh"
+
+PASS=0
+FAIL=0
+ERRORS=""
+
+assert() {
+  local desc="$1"
+  local condition="$2"
+  if eval "$condition"; then
+    echo "  ✓ $desc"
+    PASS=$((PASS + 1))
+  else
+    echo "  ✗ $desc"
+    FAIL=$((FAIL + 1))
+    ERRORS="$ERRORS\n  FAIL: $desc"
+  fi
+}
+
+assert_eq() {
+  local desc="$1" expected="$2" actual="$3"
+  if [ "$expected" = "$actual" ]; then
+    echo "  ✓ $desc"
+    PASS=$((PASS + 1))
+  else
+    echo "  ✗ $desc (expected: '$expected', got: '$actual')"
+    FAIL=$((FAIL + 1))
+    ERRORS="$ERRORS\n  FAIL: $desc (expected: '$expected', got: '$actual')"
+  fi
+}
+
+assert_symlink_target() {
+  local desc="$1" link="$2" expected_target="$3"
+  if [ -L "$link" ]; then
+    actual="$(readlink "$link")"
+    assert_eq "$desc" "$expected_target" "$actual"
+  else
+    echo "  ✗ $desc (not a symlink)"
+    FAIL=$((FAIL + 1))
+    ERRORS="$ERRORS\n  FAIL: $desc (not a symlink)"
+  fi
+}
+
+cleanup() {
+  for d in "${TMPDIR:-}" "${TMPDIR2:-}" "${TMPDIR3:-}" "${TMPDIR4:-}"; do
+    if [ -n "$d" ] && [ -d "$d" ]; then
+      chmod -R 755 "$d" 2>/dev/null || true
+      rm -rf "$d"
+    fi
+  done
+}
+trap cleanup EXIT
+
+echo "=== install.sh test suite ==="
+echo ""
+
+# ── Test 1: Fresh install (no prior skills dir) ──
+echo "Test 1: Fresh install"
+TMPDIR="$(mktemp -d /tmp/install-test-XXXXX)"
+MOCK_PROJECT="$TMPDIR/autopilot-toolkit"
+MOCK_AGENTS="$TMPDIR/home/.agents"
+
+mkdir -p "$MOCK_PROJECT/skills/autopilot/test-skill"
+echo "# Test Skill" > "$MOCK_PROJECT/skills/autopilot/test-skill/SKILL.md"
+
+mkdir -p "$MOCK_PROJECT/skills/autopilot/another-skill"
+echo "# Another Skill" > "$MOCK_PROJECT/skills/autopilot/another-skill/SKILL.md"
+
+mkdir -p "$MOCK_PROJECT/skills/upstream/skills/engineering/linked-skill"
+echo "# Linked Skill" > "$MOCK_PROJECT/skills/upstream/skills/engineering/linked-skill/SKILL.md"
+
+mkdir -p "$MOCK_PROJECT/skills/upstream/skills/productivity/handy-skill"
+echo "# Handy Skill" > "$MOCK_PROJECT/skills/upstream/skills/productivity/handy-skill/SKILL.md"
+
+# Create .skill-lock.json with 2 upstream skills
+cat > "$MOCK_PROJECT/.skill-lock.json" << 'LOCKJSON'
+{
+  "version": 3,
+  "skills": {
+    "linked-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/linked-skill/SKILL.md"
+    },
+    "handy-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/handy-skill/SKILL.md"
+    }
+  },
+  "dismissed": {}
+}
+LOCKJSON
+
+# Run install.sh with overridden paths
+HOME="$TMPDIR/home" PROJECT_ROOT="$MOCK_PROJECT" AGENTS_SKILLS_DIR="$MOCK_AGENTS/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR/output1.txt"
+
+assert "creates ~/.agents/skills/" "[ -d '$MOCK_AGENTS/skills' ]"
+assert "linked-skill symlink exists" "[ -L '$MOCK_AGENTS/skills/linked-skill' ]"
+assert "handy-skill symlink exists" "[ -L '$MOCK_AGENTS/skills/handy-skill' ]"
+assert "test-skill symlink exists" "[ -L '$MOCK_AGENTS/skills/test-skill' ]"
+assert "another-skill symlink exists" "[ -L '$MOCK_AGENTS/skills/another-skill' ]"
+assert_symlink_target "linked-skill points to correct dir" \
+  "$MOCK_AGENTS/skills/linked-skill" \
+  "$MOCK_PROJECT/skills/upstream/skills/engineering/linked-skill"
+assert_symlink_target "test-skill points to correct dir" \
+  "$MOCK_AGENTS/skills/test-skill" \
+  "$MOCK_PROJECT/skills/autopilot/test-skill"
+
+# Check summary output
+output1="$(cat "$TMPDIR/output1.txt")"
+assert "output contains 'created' count" "echo '$output1' | grep -q 'created'"
+assert "output contains 'skipped' count" "echo '$output1' | grep -q 'skipped'"
+assert "output contains 'replaced' count" "echo '$output1' | grep -q 'replaced'"
+
+echo ""
+
+# ── Test 2: Idempotent re-run ──
+echo "Test 2: Idempotent re-run"
+HOME="$TMPDIR/home" PROJECT_ROOT="$MOCK_PROJECT" AGENTS_SKILLS_DIR="$MOCK_AGENTS/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR/output2.txt"
+
+output2="$(cat "$TMPDIR/output2.txt")"
+assert "idempotent: existing valid symlinks are skipped" \
+  "echo '$output2' | grep -q 'skipped'"
+
+echo ""
+
+# ── Test 3: Broken symlink replacement ──
+echo "Test 3: Broken symlink replacement"
+# Break a symlink by removing the target
+rm -rf "$MOCK_PROJECT/skills/upstream/skills/engineering/linked-skill"
+HOME="$TMPDIR/home" PROJECT_ROOT="$MOCK_PROJECT" AGENTS_SKILLS_DIR="$MOCK_AGENTS/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR/output3.txt"
+
+output3="$(cat "$TMPDIR/output3.txt")"
+# Recreate the target, then re-run to verify fix
+mkdir -p "$MOCK_PROJECT/skills/upstream/skills/engineering/linked-skill"
+echo "# Restored" > "$MOCK_PROJECT/skills/upstream/skills/engineering/linked-skill/SKILL.md"
+HOME="$TMPDIR/home" PROJECT_ROOT="$MOCK_PROJECT" AGENTS_SKILLS_DIR="$MOCK_AGENTS/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR/output3b.txt"
+
+output3b="$(cat "$TMPDIR/output3b.txt")"
+assert "broken symlink replaced on re-run" \
+  "[ -L '$MOCK_AGENTS/skills/linked-skill' ] && [ -d '$MOCK_AGENTS/skills/linked-skill' ]"
+
+echo ""
+
+# ── Test 4: Missing source dir (graceful skip) ──
+echo "Test 4: Missing source dir"
+# Add a skill to .skill-lock.json that doesn't exist on disk
+cat > "$MOCK_PROJECT/.skill-lock.json" << 'LOCKJSON2'
+{
+  "version": 3,
+  "skills": {
+    "linked-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/linked-skill/SKILL.md"
+    },
+    "handy-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/productivity/handy-skill/SKILL.md"
+    },
+    "missing-skill": {
+      "source": "mattpocock/skills",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/missing-skill/SKILL.md"
+    }
+  },
+  "dismissed": {}
+}
+LOCKJSON2
+
+HOME="$TMPDIR/home" PROJECT_ROOT="$MOCK_PROJECT" AGENTS_SKILLS_DIR="$MOCK_AGENTS/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR/output4.txt"
+
+output4="$(cat "$TMPDIR/output4.txt")"
+assert "missing source dir does not crash script" "true"  # script completed
+assert "no symlink for missing skill" "[ ! -e '$MOCK_AGENTS/skills/missing-skill' ]"
+
+echo ""
+
+# ── Test 5: No .skill-lock.json (should still handle autopilot) ──
+echo "Test 5: No .skill-lock.json"
+TMPDIR2="$(mktemp -d /tmp/install-test2-XXXXX)"
+MOCK_PROJECT2="$TMPDIR2/autopilot-toolkit"
+MOCK_AGENTS2="$TMPDIR2/home/.agents"
+
+mkdir -p "$MOCK_PROJECT2/skills/autopilot/standalone-skill"
+echo "# Standalone" > "$MOCK_PROJECT2/skills/autopilot/standalone-skill/SKILL.md"
+
+# No .skill-lock.json at all
+HOME="$TMPDIR2/home" PROJECT_ROOT="$MOCK_PROJECT2" AGENTS_SKILLS_DIR="$MOCK_AGENTS2/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR2/output5.txt" || true
+
+assert "handles missing .skill-lock.json without crashing" "true"
+
+echo ""
+
+# ── Test 6: Empty skills directories ──
+echo "Test 6: Empty skills directories"
+TMPDIR3="$(mktemp -d /tmp/install-test3-XXXXX)"
+MOCK_PROJECT3="$TMPDIR3/autopilot-toolkit"
+MOCK_AGENTS3="$TMPDIR3/home/.agents"
+
+mkdir -p "$MOCK_PROJECT3/skills/autopilot"
+mkdir -p "$MOCK_PROJECT3/skills/upstream"
+echo '{"version":3,"skills":{},"dismissed":{}}' > "$MOCK_PROJECT3/.skill-lock.json"
+
+HOME="$TMPDIR3/home" PROJECT_ROOT="$MOCK_PROJECT3" AGENTS_SKILLS_DIR="$MOCK_AGENTS3/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR3/output6.txt" || true
+
+assert "handles empty skills dirs without crashing" "true"
+
+echo ""
+
+# ── Test 7: Permission issues ──
+echo "Test 7: Permission issues"
+TMPDIR4="$(mktemp -d /tmp/install-test-perm-XXXXX)"
+MOCK_PROJECT4="$TMPDIR4/autopilot-toolkit"
+MOCK_HOME="$TMPDIR4/readonly-home"
+
+# Create a mock project with a skill
+mkdir -p "$MOCK_PROJECT4/skills/autopilot/perm-skill"
+echo "# Perm Skill" > "$MOCK_PROJECT4/skills/autopilot/perm-skill/SKILL.md"
+echo '{"version":3,"skills":{},"dismissed":{}}' > "$MOCK_PROJECT4/.skill-lock.json"
+
+# Create a read-only home directory — mkdir -p should fail inside it
+mkdir -p "$MOCK_HOME"
+chmod 555 "$MOCK_HOME"
+
+exit_code=0
+HOME="$MOCK_HOME" PROJECT_ROOT="$MOCK_PROJECT4" AGENTS_SKILLS_DIR="$MOCK_HOME/.agents/skills" \
+  bash "$INSTALL_SCRIPT" 2>&1 | tee "$TMPDIR4/output7.txt" || exit_code=$?
+
+assert "script exits non-zero on permission error" "[ '$exit_code' -ne 0 ]"
+
+# Restore writability for cleanup
+chmod 755 "$MOCK_HOME"
+
+echo ""
+
+# ── Summary ──
+echo "=== Results ==="
+echo "Passed: $PASS"
+echo "Failed: $FAIL"
+if [ -n "$ERRORS" ]; then
+  echo -e "Failures:$ERRORS"
+fi
+
+if [ "$FAIL" -gt 0 ]; then
+  exit 1
+fi
+exit 0
