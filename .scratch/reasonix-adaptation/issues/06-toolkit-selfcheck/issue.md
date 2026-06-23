@@ -1,5 +1,5 @@
 ---
-Status: ready-for-agent
+Status: resolved
 ---
 
 # 06-toolkit-selfcheck

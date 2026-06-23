@@ -1,5 +1,5 @@
 ---
-Status: ready-for-agent
+Status: needs-info
 ---
 
 # 07-reasonix-verification (HITL)
