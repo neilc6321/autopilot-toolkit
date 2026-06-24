@@ -32,9 +32,23 @@ _Avoid_: name collision, shadowing
 A non-symlink directory at `~/.agents/skills/<name>` where a symlink is expected. Indicates manual tampering or a competing install method. install.sh must not silently delete it.
 _Avoid_: concrete directory, non-link directory
 
+**Orphaned symlink**:
+A symlink in `~/.agents/skills/` whose target points under PROJECT_ROOT but whose name is not in the expected set. Created when a toolkit skill is removed upstream — `install.sh unlink <name>` cleans it up.
+_Avoid_: leftover symlink, stale symlink, dangling symlink (means broken target, different thing)
+
+**Operational sync**:
+The act of calling `install.sh sync <name> <src>` to bring one skill symlink to its expected state. Skips if already correct, creates if missing, replaces if broken or wrong target, warns and exits non-zero on real-directory conflict.
+_Avoid_: install step, link action
+
+**Toolkit setup**:
+The end-to-end install-or-update workflow, orchestrated by the `toolkit-setup` skill. Discovers the expected set, diagnoses every skill, computes and executes the minimal set of `sync`/`unlink`/`link-principles` operations, then verifies.
+_Avoid_: selfcheck (that's now only the verification step), install flow
+
 ## Relationships
 
 - The **expected set** is the union of upstream skills (from `.skill-lock.json`) and autopilot skills (from `skills/autopilot/` scanning)
 - An **install target** entry at `<name>` should be a symlink whose **symlink target** matches the toolkit's source directory for that name
 - A **same-name conflict** is a symlink at the right name with the wrong symlink target
 - A **real directory** at a toolkit skill's name is a conflict of type, not just target
+- An **orphaned symlink** is a toolkit symlink whose name is no longer in the expected set — cleaned by `unlink`
+- **Toolkit setup** invokes **operational sync** per skill, then verifies via a final diagnostic pass
