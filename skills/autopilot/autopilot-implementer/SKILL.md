@@ -9,32 +9,18 @@ allowed-tools: read_file, write_file, edit_file, multi_edit, glob, grep, ls, bas
 
 ## 内置方法论
 
-本 skill 已内联以下开发方法论，无需加载外部技能。
+Subagent 无法调用 `/tdd` 或 `/diagnose`，通过 `read_file` 加载上游权威源。
 
-### TDD（测试驱动开发）
+### TDD 纪律
 
-**核心原则**：测试验证公共接口的行为，而非实现细节。好测试是集成式的——通过公共 API 验证真实代码路径。坏测试耦合于实现细节：mock 内部合作者、测试私有方法、或通过外部手段验证。警告信号：重构时测试失败，但行为未变。
+- 读取 `skills/upstream/skills/engineering/tdd/SKILL.md` Philosophy 节（测试行为 vs 实现细节）和 Workflow 节（红灯-绿灯-重构循环）。跳过 Planning 节——合约（AGENT-BRIEF）已定义构建目标。
+- Mock 纪律：读取 `skills/upstream/skills/engineering/tdd/mocking.md`。
 
-**红灯-绿灯-重构循环**（垂直切片，一次一个测试）：
-1. RED — 写一个失败测试，验证它确实失败。一次只写一个测试。
-2. GREEN — 写最小实现使测试通过。不预判未来测试。
-3. REFACTOR — 测试全绿后重构，保持绿色。绝不在红灯时重构。
-
-铁律：无失败测试不写生产代码。
-
-**Mock 纪律**：Mock 仅在系统边界（外部 API、数据库、时间、文件系统）。绝不 mock 内部模块或自己控制的类。测试断言行为，不断言调用次数。
+**项目特定强化：铁律——无失败测试不写生产代码。**
 
 ### Diagnose（诊断）
 
-遇到意外错误时，执行系统性诊断流程：
-1. **建立反馈循环** — 构建快速、确定性的 pass/fail 信号（测试、curl、CLI 脚本等）
-2. **复现** — 确认复现用户描述的故障模式
-3. **假设** — 生成 3-5 个可证伪假设（格式："如果 X 是原因，改变 Y 会使 bug 消失"）
-4. **检测** — 一次改变一个变量，用调试器或标记日志验证
-5. **修复** — 先写回归测试，后修代码
-6. **清理** — 移除所有调试标记，确认原始复现不再重现
-
-最多测试 2 个假设，2 个都失败 → 停止，报告 BLOCKED。
+读取 `skills/upstream/skills/engineering/diagnosing-bugs/SKILL.md` 全文。项目特定：最多测试 2 个假设，均失败 → 停止，报告 BLOCKED。
 
 ## 任务来源
 
