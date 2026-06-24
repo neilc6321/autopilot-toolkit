@@ -9,7 +9,7 @@ A skill-pack repo for Reasonix. The "code" is SKILL.md files — markdown with Y
 ## Commands
 
 ```bash
-bash install.sh                  # deploy symlinks to ~/.agents/skills/
+bash install.sh sync <name> <src> # atomic symlink sync (subcommand)
 bash tests/test_install.sh        # integration tests for install.sh
 bash validation/run.sh            # validate all 19 SKILL.md frontmatter files
 bash validation/validate.test.sh  # unit tests for the validation library
@@ -21,16 +21,17 @@ No build step — skills are consumed directly from the source tree by the agent
 
 ```
 skills/
-├── upstream/          # vendored mattpocock/skills (14 installed, see .skill-lock.json)
+├── upstream/          # vendored mattpocock/skills (13 installed, see .skill-lock.json)
 │   ├── engineering/   # codebase-design, diagnosing-bugs, domain-modeling, tdd, triage, …
 │   ├── productivity/  # grilling, handoff, teach, writing-great-skills, …
 │   └── misc/          # git-guardrails-claude-code, scaffold-exercises, …
-├── autopilot/         # 5 custom autopilot skills
+├── autopilot/         # 6 custom autopilot skills
 │   ├── autopilot-orchestrator/   # scans .scratch/ + GitHub Issues for ready work
 │   ├── autopilot-implementer/    # TDD-driven implementation agent
 │   ├── autopilot-reviewer/       # four-axis review (behavior, TDD, code, plan)
 │   ├── audit-autopilot/          # post-hoc fidelity audit of agent execution
-│   └── toolkit-selfcheck/        # installation integrity check
+│   ├── toolkit-setup/            # install/update orchestration
+│   └── zoom-out/                 # higher-level perspective
 install.sh             # symlink deployment to ~/.agents/skills/
 .skill-lock.json       # upstream skill manifest (name, path, hashes)
 validation/            # frontmatter validation library + runner

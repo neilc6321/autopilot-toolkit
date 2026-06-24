@@ -1,189 +1,194 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# install.sh — Link project skills and principles into ~/.agents/
+# install.sh — Pure-tool subcommand interface for agent skill management
 #
-# Discovery:
-#   - Upstream: reads .skill-lock.json for installed skills
-#   - Autopilot: scans skills/autopilot/*/SKILL.md
-#   - Principles: links principles/ directory to ~/.agents/principles/
+# Subcommands:
+#   sync <name> <src>       Ensure ~/.agents/skills/<name> is a symlink to <src>
+#   unlink <name>           Remove a symlink under ~/.agents/skills/<name> if it
+#                           points under PROJECT_ROOT (no-op otherwise)
+#   link-principles <src>   Ensure ~/.agents/principles is a symlink to <src>
 #
-# Idempotent: valid symlinks are skipped; broken ones are replaced.
-# Output: summary with created / skipped / replaced counts.
+# Environment variables:
+#   PROJECT_ROOT           Project root directory (used by some subcommands)
+#   AGENTS_SKILLS_DIR      Override ~/.agents/skills/ path
+#   AGENTS_PRINCIPLES_DIR  Override ~/.agents/principles path
 
+# PROJECT_ROOT is computed here for use by unlink (to check symlink ownership)
+# and by link-principles (to set the principles symlink target).
 PROJECT_ROOT="${PROJECT_ROOT:-$(cd "$(dirname "$0")" && pwd)}"
 SKILLS_DIR="${AGENTS_SKILLS_DIR:-$HOME/.agents/skills}"
 PRINCIPLES_DIR="${AGENTS_PRINCIPLES_DIR:-$HOME/.agents/principles}"
 
-skills_created=0
-skills_skipped=0
-skills_replaced=0
-principles_created=0
-principles_skipped=0
-principles_replaced=0
-principles_deployed=false
-
-# ── helpers ──
-
 warn()  { echo "WARNING: $*" >&2; }
-info()  { echo "INFO: $*" >&2; }
 
-# Resolve a symlink to its absolute target (empty string if broken or not a link)
-resolve_link() {
-  local link="$1"
-  if [ -L "$link" ]; then
-    readlink "$link" 2>/dev/null || true
-  fi
-}
-
-# Check if a symlink is valid (points to an existing directory)
-is_valid_symlink() {
-  local link="$1"
-  [ -L "$link" ] && [ -d "$link" ]
-}
-
-# Create or update a symlink. Returns: created/replaced/skipped via stdout.
-install_link() {
-  local src="$1"    # absolute path to the skill source directory
-  local name="$2"   # skill name (basename)
-  local target="$SKILLS_DIR/$name"
-
-  # If a real directory (not a symlink) exists at target, warn and skip
-  if [ -e "$target" ] && [ ! -L "$target" ]; then
-    warn "$target exists as a real directory (not a symlink) — skipping to avoid destructive overwrite"
-    skills_skipped=$((skills_skipped + 1))
-    echo "skipped"
-    return
-  fi
-
-  if [ -L "$target" ]; then
-    local existing
-    existing="$(resolve_link "$target")"
-    if [ "$existing" = "$src" ] && [ -d "$target" ]; then
-      # Valid symlink pointing to correct source — skip
-      skills_skipped=$((skills_skipped + 1))
-      echo "skipped"
-      return
-    else
-      # Broken or wrong target — replace
-      rm -f "$target"
-    fi
-  fi
-
-  # Check if source directory exists
-  if [ ! -d "$src" ]; then
-    warn "source directory does not exist: $src (skipping $name)"
-    skills_skipped=$((skills_skipped + 1))
-    echo "skipped"
-    return
-  fi
-
-  ln -sfn "$src" "$target" || {
-    warn "failed to create symlink: $target -> $src"
-    skills_skipped=$((skills_skipped + 1))
-    echo "skipped"
-    return
-  }
-
-  # Determine if this was a new creation or replacement
-  if [ -n "${existing:-}" ]; then
-    skills_replaced=$((skills_replaced + 1))
-    echo "replaced"
-  else
-    skills_created=$((skills_created + 1))
-    echo "created"
-  fi
-}
-
-# ── ensure target directory exists ──
-
-mkdir -p "$SKILLS_DIR" || {
-  warn "cannot create $SKILLS_DIR — check permissions"
+usage() {
+  echo "Usage: install.sh <subcommand> [args...]"
+  echo ""
+  echo "Subcommands:"
+  echo "  sync <name> <src>       Ensure ~/.agents/skills/<name> is a symlink to <src>"
+  echo "  unlink <name>           Remove a toolkit-owned symlink from ~/.agents/skills/"
+  echo "  link-principles <src>   Ensure ~/.agents/principles is a symlink to <src>"
   exit 1
 }
 
-# ── discover autopilot skills ──
+# sync <name> <src>
+# Ensures $SKILLS_DIR/<name> is a symlink pointing to <src>.
+# See tests/test_install.sh for the full behavior table.
+sync_skill() {
+  local name="$1"
+  local src="$2"
+  local target="$SKILLS_DIR/$name"
 
-AUTOPILOT_DIR="$PROJECT_ROOT/skills/autopilot"
-if [ -d "$AUTOPILOT_DIR" ]; then
-  for skill_md in "$AUTOPILOT_DIR"/*/SKILL.md; do
-    [ -f "$skill_md" ] || continue
-    src="$(cd "$(dirname "$skill_md")" && pwd)"
-    name="$(basename "$src")"
-    install_link "$src" "$name" > /dev/null
-  done
-fi
-
-# ── discover upstream skills (via .skill-lock.json) ──
-
-LOCKFILE="$PROJECT_ROOT/.skill-lock.json"
-if [ -f "$LOCKFILE" ]; then
-  # Parse .skill-lock.json: output "name\tskillPath" per line
-  parse_lockfile() {
-    if command -v python3 &>/dev/null; then
-      python3 -c "
-import json, sys
-try:
-    with open(sys.argv[1]) as f:
-        data = json.load(f)
-    for name, info in data.get('skills', {}).items():
-        sp = info.get('skillPath', '')
-        if sp:
-            print(f'{name}\t{sp}')
-except Exception as e:
-    print(f'error: {e}', file=sys.stderr)
-    sys.exit(0)
-" "$LOCKFILE"
-    elif command -v jq &>/dev/null; then
-      jq -r '.skills // {} | to_entries[] | "\(.key)\t\(.value.skillPath // empty)"' "$LOCKFILE" 2>/dev/null || true
-    else
-      warn "neither python3 nor jq found — cannot parse .skill-lock.json"
-    fi
+  # Ensure the skills directory exists
+  mkdir -p "$SKILLS_DIR" || {
+    warn "cannot create $SKILLS_DIR — check permissions"
+    exit 1
   }
 
-  while IFS=$'\t' read -r name skill_path; do
-    [ -n "$name" ] || continue
-    [ -n "$skill_path" ] || continue
-    src="$PROJECT_ROOT/skills/upstream/$skill_path"
-    src="$(dirname "$src")"   # remove /SKILL.md, keep the skill directory
-    install_link "$src" "$name" > /dev/null
-  done < <(parse_lockfile)
-fi
-
-# ── deploy principles/ ──
-
-PRINCIPLES_SRC="$PROJECT_ROOT/principles"
-if [ -d "$PRINCIPLES_SRC" ]; then
-  principles_deployed=true
-  # Create parent directory for the symlink target (e.g. ~/.agents/)
-  if ! mkdir -p "$(dirname "$PRINCIPLES_DIR")"; then
-    warn "Failed to create parent directory for $PRINCIPLES_DIR — skipping principles deployment"
-  else
-    if [ -e "$PRINCIPLES_DIR" ] && [ ! -L "$PRINCIPLES_DIR" ]; then
-      # Real directory exists at target — warn and skip
-      warn "$PRINCIPLES_DIR exists as a real directory (not a symlink) — skipping to avoid destructive overwrite"
-      principles_skipped=$((principles_skipped + 1))
-    elif [ -L "$PRINCIPLES_DIR" ]; then
-      existing_principles="$(resolve_link "$PRINCIPLES_DIR")"
-      if [ "$existing_principles" = "$PRINCIPLES_SRC" ] && [ -d "$PRINCIPLES_DIR" ]; then
-        : # Valid symlink — nothing to do
-        principles_skipped=$((principles_skipped + 1))
-      else
-        rm -f "$PRINCIPLES_DIR"
-        ln -sfn "$PRINCIPLES_SRC" "$PRINCIPLES_DIR"
-        principles_replaced=$((principles_replaced + 1))
-      fi
-    else
-      ln -sfn "$PRINCIPLES_SRC" "$PRINCIPLES_DIR"
-      principles_created=$((principles_created + 1))
-    fi
+  # If target exists as a real file/directory (not a symlink), refuse to overwrite
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    warn "$target exists as a real directory (not a symlink) — refusing to overwrite"
+    return 1
   fi
+
+  # If target is a symlink, inspect its current state
+  if [ -L "$target" ]; then
+    local existing
+    existing="$(readlink "$target" 2>/dev/null || true)"
+
+    # Valid symlink pointing to the correct source — nothing to do
+    if [ "$existing" = "$src" ] && [ -d "$target" ]; then
+      return 0
+    fi
+
+    # Broken or pointing to the wrong target — remove it before rebuilding
+    rm -f "$target"
+  fi
+
+  # Source directory must exist
+  if [ ! -d "$src" ]; then
+    warn "source directory does not exist: $src"
+    return 0
+  fi
+
+  # Create the symlink
+  ln -sfn "$src" "$target" || {
+    warn "failed to create symlink: $target -> $src"
+    return 1
+  }
+
+  return 0
+}
+
+# unlink <name>
+# Removes $SKILLS_DIR/<name> if it is a symlink whose target lies under
+# PROJECT_ROOT.  Otherwise (non-existent, real directory, or symlink
+# pointing outside PROJECT_ROOT) it is a silent no-op.
+unlink_skill() {
+  local name="$1"
+  local target="$SKILLS_DIR/$name"
+
+  # Only operate on symlinks
+  if [ ! -L "$target" ]; then
+    return 0
+  fi
+
+  local link_target
+  link_target="$(readlink "$target" 2>/dev/null || true)"
+
+  # Remove only if the symlink target is under PROJECT_ROOT
+  case "$link_target" in
+    "$PROJECT_ROOT"|"$PROJECT_ROOT/"*)
+      rm -f "$target"
+      ;;
+  esac
+
+  return 0
+}
+
+# link_principles <src>
+# Ensures $PRINCIPLES_DIR is a symlink pointing to <src>.
+# Behaviour mirrors sync: creates, skips if correct, replaces broken/wrong,
+# warns and exits non-zero on real-directory conflict.
+link_principles() {
+  local src="$1"
+  local target="$PRINCIPLES_DIR"
+
+  # If target exists as a real file/directory (not a symlink), refuse to overwrite
+  if [ -e "$target" ] && [ ! -L "$target" ]; then
+    warn "$target exists as a real directory (not a symlink) — refusing to overwrite"
+    return 1
+  fi
+
+  # If target is a symlink, inspect its current state
+  if [ -L "$target" ]; then
+    local existing
+    existing="$(readlink "$target" 2>/dev/null || true)"
+
+    # Valid symlink pointing to the correct source — nothing to do
+    if [ "$existing" = "$src" ] && [ -d "$target" ]; then
+      return 0
+    fi
+
+    # Broken or pointing to the wrong target — remove it before rebuilding
+    rm -f "$target"
+  fi
+
+  # Source directory must exist
+  if [ ! -d "$src" ]; then
+    warn "source directory does not exist: $src"
+    return 0
+  fi
+
+  # Create the symlink
+  # Ensure parent exists (e.g. ~/.agents/)
+  mkdir -p "$(dirname "$target")" || {
+    warn "cannot create $(dirname "$target") — check permissions"
+    exit 1
+  }
+
+  ln -sfn "$src" "$target" || {
+    warn "failed to create symlink: $target -> $src"
+    return 1
+  }
+
+  return 0
+}
+
+# ── main ──
+
+if [ $# -eq 0 ]; then
+  usage
 fi
 
-# ── summary ──
+subcommand="$1"
+shift
 
-echo "Install complete:"
-echo "  Skills: $skills_created created, $skills_skipped skipped, $skills_replaced replaced"
-if $principles_deployed; then
-  echo "  Principles: $principles_created created, $principles_skipped skipped, $principles_replaced replaced"
-fi
+case "$subcommand" in
+  sync)
+    if [ $# -ne 2 ]; then
+      echo "ERROR: sync requires exactly two arguments: <name> <src>" >&2
+      usage
+    fi
+    sync_skill "$1" "$2"
+    ;;
+  unlink)
+    if [ $# -ne 1 ]; then
+      echo "ERROR: unlink requires exactly one argument: <name>" >&2
+      usage
+    fi
+    unlink_skill "$1"
+    ;;
+  link-principles)
+    if [ $# -ne 1 ]; then
+      echo "ERROR: link-principles requires exactly one argument: <src>" >&2
+      usage
+    fi
+    link_principles "$1"
+    ;;
+  *)
+    echo "ERROR: unknown subcommand: $subcommand" >&2
+    usage
+    ;;
+esac
