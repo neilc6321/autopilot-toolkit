@@ -29,7 +29,7 @@ usage() {
   echo "  sync <name> <src>       Ensure ~/.agents/skills/<name> is a symlink to <src>"
   echo "  unlink <name>           Remove a toolkit-owned symlink from ~/.agents/skills/"
   echo "  link-principles <src>   Ensure ~/.agents/principles is a symlink to <src>"
-  exit 1
+  return 1
 }
 
 # sync <name> <src>
@@ -43,7 +43,7 @@ sync_skill() {
   # Ensure the skills directory exists
   mkdir -p "$SKILLS_DIR" || {
     warn "cannot create $SKILLS_DIR — check permissions"
-    exit 1
+    return 1
   }
 
   # If target exists as a real file/directory (not a symlink), refuse to overwrite
@@ -145,7 +145,7 @@ link_principles() {
   # Ensure parent exists (e.g. ~/.agents/)
   mkdir -p "$(dirname "$target")" || {
     warn "cannot create $(dirname "$target") — check permissions"
-    exit 1
+    return 1
   }
 
   ln -sfn "$src" "$target" || {
