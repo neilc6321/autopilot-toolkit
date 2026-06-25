@@ -55,3 +55,28 @@ jobs:
           components: clippy
       - name: Run clippy (warnings as errors)
         run: cargo clippy -- -D warnings
+
+  clippy-scripts:
+    name: clippy-scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Install rust-script
+        run: cargo install rust-script
+      - name: Run clippy on rust-script files
+        run: |
+          set -e
+          for f in install.rs validation/run.rs scripts/check.rs scripts/env-check.rs \
+                   tests/test_install.rs tests/test_toolkit_setup.rs \
+                   tests/test_check.rs tests/test_github_verify.rs; do
+            echo "::group::clippy $f"
+            tmpdir=$(mktemp -d)
+            rust-script --package --pkg-path "$tmpdir" "$f"
+            cargo clippy --manifest-path "$tmpdir/Cargo.toml" -- -D warnings
+            rm -rf "$tmpdir"
+            echo "::endgroup::"
+          done
