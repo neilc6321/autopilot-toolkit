@@ -28,13 +28,18 @@ fn project_root() -> PathBuf {
     let src = Path::new(file!());
     if let (Some(_tests_dir), Some(proj)) = (src.parent(), src.parent().and_then(|p| p.parent())) {
         let candidate = proj.to_path_buf();
-        if candidate.join("skills/autopilot/autopilot-orchestrator/SKILL.md").exists() {
+        if candidate
+            .join("skills/autopilot/autopilot-orchestrator/SKILL.md")
+            .exists()
+        {
             return candidate;
         }
     }
     if let Ok(root) = std::env::var("PROJECT_ROOT") {
         let p = PathBuf::from(&root);
-        if p.join("skills/autopilot/autopilot-orchestrator/SKILL.md").exists() {
+        if p.join("skills/autopilot/autopilot-orchestrator/SKILL.md")
+            .exists()
+        {
             return p;
         }
     }
@@ -47,8 +52,7 @@ fn orchestrator_skill_path() -> PathBuf {
 }
 
 fn read_orchestrator_skill() -> String {
-    fs::read_to_string(orchestrator_skill_path())
-        .expect("failed to read orchestrator SKILL.md")
+    fs::read_to_string(orchestrator_skill_path()).expect("failed to read orchestrator SKILL.md")
 }
 
 /// Count occurrences of a pattern in text.
@@ -74,10 +78,7 @@ mod tests {
     #[test]
     fn ac1_skill_defines_scan_command() {
         let skill = read_orchestrator_skill();
-        let count = count_matches(
-            &skill,
-            "gh issue list --label \"ready-for-agent\"",
-        );
+        let count = count_matches(&skill, "gh issue list --label \"ready-for-agent\"");
         assert!(
             count >= 1,
             "SKILL.md must define 'gh issue list --label \"ready-for-agent\"' scan command"
@@ -92,14 +93,8 @@ mod tests {
     fn ac2_skill_defines_stop_behavior() {
         let skill = read_orchestrator_skill();
 
-        let stop_patterns = [
-            "非以上标签",
-            "非以上状态",
-            "回复当前状态并停止",
-        ];
-        let found = stop_patterns
-            .iter()
-            .any(|p| skill.contains(p));
+        let stop_patterns = ["非以上标签", "非以上状态", "回复当前状态并停止"];
+        let found = stop_patterns.iter().any(|p| skill.contains(p));
 
         assert!(
             found,
@@ -125,12 +120,7 @@ mod tests {
     fn ac4_skill_defines_state_transitions() {
         let skill = read_orchestrator_skill();
 
-        let transition_keywords = [
-            "ready-for-agent",
-            "in-progress",
-            "resolved",
-            "needs-info",
-        ];
+        let transition_keywords = ["ready-for-agent", "in-progress", "resolved", "needs-info"];
 
         let mut found_count = 0;
         for kw in &transition_keywords {
@@ -162,9 +152,9 @@ mod tests {
     #[test]
     fn ac5_skill_defines_status_recognition() {
         let skill = read_orchestrator_skill();
-        let has_status_check = skill.lines().any(|l| {
-            l.contains("检查") && (l.contains("label") || l.contains("Status"))
-        });
+        let has_status_check = skill
+            .lines()
+            .any(|l| l.contains("检查") && (l.contains("label") || l.contains("Status")));
         assert!(
             has_status_check,
             "SKILL.md must define status/label recognition phase (检查 + label/Status on same line)"
@@ -207,11 +197,10 @@ mod tests {
     fn ac5_skill_defines_retry_limit() {
         let skill = read_orchestrator_skill();
         let has_retry = contains(&skill, "最多 3 轮")
-            || skill.lines().any(|l| l.contains("retry_count") && l.contains("3"));
-        assert!(
-            has_retry,
-            "SKILL.md must define retry limit (max 3 rounds)"
-        );
+            || skill
+                .lines()
+                .any(|l| l.contains("retry_count") && l.contains("3"));
+        assert!(has_retry, "SKILL.md must define retry limit (max 3 rounds)");
     }
 
     #[test]
@@ -230,17 +219,13 @@ mod tests {
         let skill = read_orchestrator_skill();
         let has_empty = contains(&skill, "空回复处理")
             || (contains(&skill, "empty") && contains(&skill, "retry"));
-        assert!(
-            has_empty,
-            "SKILL.md must define empty reply handling"
-        );
+        assert!(has_empty, "SKILL.md must define empty reply handling");
     }
 
     #[test]
     fn ac5_skill_defines_unparseable_reply_handling() {
         let skill = read_orchestrator_skill();
-        let has_unparseable = contains(&skill, "解析容错")
-            && contains(&skill, "不可解析");
+        let has_unparseable = contains(&skill, "解析容错") && contains(&skill, "不可解析");
         assert!(
             has_unparseable,
             "SKILL.md must define unparseable reply handling (解析容错...不可解析)"

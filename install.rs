@@ -27,12 +27,8 @@ fn sync_skill(name: &str, src: &Path, skills_dir: &Path) -> Result<(), anyhow::E
     let target = skills_dir.join(name);
 
     // Ensure the skills directory exists
-    std::fs::create_dir_all(skills_dir).with_context(|| {
-        format!(
-            "cannot create directory {}",
-            skills_dir.display()
-        )
-    })?;
+    std::fs::create_dir_all(skills_dir)
+        .with_context(|| format!("cannot create directory {}", skills_dir.display()))?;
 
     // If target exists as a real file/directory (not a symlink), refuse to overwrite
     if target.exists() && !target.is_symlink() {
@@ -60,7 +56,10 @@ fn sync_skill(name: &str, src: &Path, skills_dir: &Path) -> Result<(), anyhow::E
 
     // Source directory must exist
     if !src.is_dir() {
-        warn(&format!("source directory does not exist: {}", src.display()));
+        warn(&format!(
+            "source directory does not exist: {}",
+            src.display()
+        ));
         return Ok(());
     }
 
@@ -127,18 +126,17 @@ fn link_principles(src: &Path, principles_dir: &Path) -> Result<(), anyhow::Erro
 
     // Source directory must exist
     if !src.is_dir() {
-        warn(&format!("source directory does not exist: {}", src.display()));
+        warn(&format!(
+            "source directory does not exist: {}",
+            src.display()
+        ));
         return Ok(());
     }
 
     // Ensure parent directory exists (e.g. ~/.agents/)
     if let Some(parent) = target.parent() {
-        std::fs::create_dir_all(parent).with_context(|| {
-            format!(
-                "cannot create directory {}",
-                parent.display()
-            )
-        })?;
+        std::fs::create_dir_all(parent)
+            .with_context(|| format!("cannot create directory {}", parent.display()))?;
     }
 
     // Create the symlink
@@ -188,7 +186,10 @@ fn main() -> anyhow::Result<()> {
     match subcommand.as_str() {
         "sync" => {
             if rest.len() != 2 {
-                eprintln!("ERROR: sync requires exactly two arguments (<name> <src>), but received {}", rest.len());
+                eprintln!(
+                    "ERROR: sync requires exactly two arguments (<name> <src>), but received {}",
+                    rest.len()
+                );
                 usage();
             }
             let name = &rest[0];
@@ -197,7 +198,10 @@ fn main() -> anyhow::Result<()> {
         }
         "unlink" => {
             if rest.len() != 1 {
-                eprintln!("ERROR: unlink requires exactly one argument (<name>), but received {}", rest.len());
+                eprintln!(
+                    "ERROR: unlink requires exactly one argument (<name>), but received {}",
+                    rest.len()
+                );
                 usage();
             }
             let name = &rest[0];
@@ -205,14 +209,20 @@ fn main() -> anyhow::Result<()> {
         }
         "link-principles" => {
             if rest.len() != 1 {
-                eprintln!("ERROR: link-principles requires exactly one argument (<src>), but received {}", rest.len());
+                eprintln!(
+                    "ERROR: link-principles requires exactly one argument (<src>), but received {}",
+                    rest.len()
+                );
                 usage();
             }
             let src = PathBuf::from(&rest[0]);
             link_principles(&src, &principles_dir)?;
         }
         _ => {
-            eprintln!("ERROR: unknown subcommand '{}'. Available: sync, unlink, link-principles", subcommand);
+            eprintln!(
+                "ERROR: unknown subcommand '{}'. Available: sync, unlink, link-principles",
+                subcommand
+            );
             usage();
         }
     }

@@ -178,10 +178,7 @@ fn check_skills(
             None => {
                 results.push((
                     entry.name.clone(),
-                    CheckResult::Skip(format!(
-                        "unexpected skillPath format: {}",
-                        entry.skill_path
-                    )),
+                    CheckResult::Skip(format!("unexpected skillPath format: {}", entry.skill_path)),
                 ));
                 continue;
             }
@@ -252,7 +249,9 @@ fn check_skills(
 
 /// Determine if any result is a Fail.
 fn any_fail(results: &[(String, CheckResult)]) -> bool {
-    results.iter().any(|(_, r)| matches!(r, CheckResult::Fail(_)))
+    results
+        .iter()
+        .any(|(_, r)| matches!(r, CheckResult::Fail(_)))
 }
 
 /// Format a single check result line, matching the bash script output exactly.
@@ -306,8 +305,8 @@ fn main() {
             script_path
                 .canonicalize()
                 .unwrap_or_else(|_| script_path.clone())
-                .parent()        // scripts/
-                .and_then(|p| p.parent())  // project root
+                .parent() // scripts/
+                .and_then(|p| p.parent()) // project root
                 .map(|p| p.to_path_buf())
                 .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| PathBuf::from(".")))
         });
@@ -400,7 +399,9 @@ mod tests {
         let src = Path::new(file!());
         // src is relative to the project root when compiled via rust-script
         // e.g. "scripts/check.rs" → parent is "scripts" → parent is project root
-        if let (Some(scripts_dir), Some(proj)) = (src.parent(), src.parent().and_then(|p| p.parent())) {
+        if let (Some(scripts_dir), Some(proj)) =
+            (src.parent(), src.parent().and_then(|p| p.parent()))
+        {
             let candidate = if scripts_dir.as_os_str() == "scripts" {
                 // file!() gave us "scripts/check.rs" — parent is "scripts", parent.parent is root
                 proj.to_path_buf()
@@ -441,8 +442,8 @@ mod tests {
     impl TempDir {
         fn new() -> Self {
             let n = TEMP_COUNTER.fetch_add(1, Ordering::SeqCst);
-            let dir = std::env::temp_dir()
-                .join(format!("check-rs-test-{}-{}", std::process::id(), n));
+            let dir =
+                std::env::temp_dir().join(format!("check-rs-test-{}-{}", std::process::id(), n));
             fs::create_dir_all(&dir).expect("create temp dir");
             TempDir(dir)
         }
@@ -531,7 +532,10 @@ mod tests {
         write_file(&sub, "SKILL.md", "version 2\n");
         let hash2 = compute_tree_hash(&sub).expect("hash2");
 
-        assert_ne!(hash1, hash2, "different content should produce different hash");
+        assert_ne!(
+            hash1, hash2,
+            "different content should produce different hash"
+        );
     }
 
     // ── skill_folder_from_path ───────────────────────────────────────────
@@ -687,7 +691,10 @@ mod tests {
     #[test]
     fn format_result_fail_general_error() {
         assert_eq!(
-            format_result("my-skill", &CheckResult::Fail("folder not found: /x".to_string())),
+            format_result(
+                "my-skill",
+                &CheckResult::Fail("folder not found: /x".to_string())
+            ),
             "FAIL: my-skill — folder not found: /x"
         );
     }

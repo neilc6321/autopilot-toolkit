@@ -69,7 +69,11 @@ fn actual_project_root() -> PathBuf {
 /// Run scripts/check.rs with PROJECT_ROOT set to synthetic_root.
 /// check_script_path is the location of scripts/check.rs in the actual project.
 fn run_check(check_script: &Path, synthetic_project: &Path) -> (String, String, i32) {
-    assert!(check_script.exists(), "check.rs not found at {:?}", check_script);
+    assert!(
+        check_script.exists(),
+        "check.rs not found at {:?}",
+        check_script
+    );
 
     let output = Command::new("rust-script")
         .arg(check_script)
@@ -120,7 +124,11 @@ mod tests {
         let tmp = TempDir::new("check-test-pass");
         let root = tmp.path();
 
-        create_skill_dir(root, "skills/upstream/skills/engineering/tdd", "# TDD Skill\n");
+        create_skill_dir(
+            root,
+            "skills/upstream/skills/engineering/tdd",
+            "# TDD Skill\n",
+        );
 
         let skills = serde_json::json!({
             "tdd": {
@@ -134,17 +142,45 @@ mod tests {
         // First run: should FIX the hash
         let (stdout1, _stderr1, code1) = run_check(&check_script_path(), root);
         assert_eq!(code1, 0, "FIX run should exit 0, stdout: {}", stdout1);
-        assert!(stdout1.contains("FIX: tdd →"), "should contain FIX line, got: {}", stdout1);
-        assert!(stdout1.contains("PASS: tdd"), "should also contain PASS, got: {}", stdout1);
-        assert!(stdout1.contains("ALL PASS"), "should contain ALL PASS, got: {}", stdout1);
+        assert!(
+            stdout1.contains("FIX: tdd →"),
+            "should contain FIX line, got: {}",
+            stdout1
+        );
+        assert!(
+            stdout1.contains("PASS: tdd"),
+            "should also contain PASS, got: {}",
+            stdout1
+        );
+        assert!(
+            stdout1.contains("ALL PASS"),
+            "should contain ALL PASS, got: {}",
+            stdout1
+        );
 
         // Second run: should be all PASS
         let (stdout2, _stderr2, code2) = run_check(&check_script_path(), root);
         assert_eq!(code2, 0, "second run should exit 0, got: {}", stdout2);
-        assert!(stdout2.contains("PASS: tdd"), "should contain PASS: tdd, got: {}", stdout2);
-        assert!(stdout2.contains("ALL PASS"), "should contain ALL PASS, got: {}", stdout2);
-        assert!(!stdout2.contains("FAIL"), "should not contain FAIL, got: {}", stdout2);
-        assert!(!stdout2.contains("FIX"), "should not contain FIX on second run, got: {}", stdout2);
+        assert!(
+            stdout2.contains("PASS: tdd"),
+            "should contain PASS: tdd, got: {}",
+            stdout2
+        );
+        assert!(
+            stdout2.contains("ALL PASS"),
+            "should contain ALL PASS, got: {}",
+            stdout2
+        );
+        assert!(
+            !stdout2.contains("FAIL"),
+            "should not contain FAIL, got: {}",
+            stdout2
+        );
+        assert!(
+            !stdout2.contains("FIX"),
+            "should not contain FIX on second run, got: {}",
+            stdout2
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -156,7 +192,11 @@ mod tests {
         let tmp = TempDir::new("check-test-fail");
         let root = tmp.path();
 
-        create_skill_dir(root, "skills/upstream/skills/engineering/tdd", "# TDD Skill\n");
+        create_skill_dir(
+            root,
+            "skills/upstream/skills/engineering/tdd",
+            "# TDD Skill\n",
+        );
 
         let skills = serde_json::json!({
             "tdd": {
@@ -169,8 +209,16 @@ mod tests {
 
         let (stdout, _stderr, code) = run_check(&check_script_path(), root);
         assert_eq!(code, 1, "FAIL run should exit 1, stdout: {}", stdout);
-        assert!(stdout.contains("FAIL: tdd"), "should contain FAIL: tdd, got: {}", stdout);
-        assert!(stdout.contains("computed:"), "should contain computed hash, got: {}", stdout);
+        assert!(
+            stdout.contains("FAIL: tdd"),
+            "should contain FAIL: tdd, got: {}",
+            stdout
+        );
+        assert!(
+            stdout.contains("computed:"),
+            "should contain computed hash, got: {}",
+            stdout
+        );
         assert!(
             stdout.contains("lockfile: 0000000000000000000000000000000000000000"),
             "should mention lockfile hash, got: {}",
@@ -214,8 +262,16 @@ mod tests {
         let tmp = TempDir::new("check-test-fix");
         let root = tmp.path();
 
-        create_skill_dir(root, "skills/upstream/skills/engineering/tdd", "# TDD Skill\n");
-        create_skill_dir(root, "skills/upstream/skills/engineering/triage", "# Triage\n");
+        create_skill_dir(
+            root,
+            "skills/upstream/skills/engineering/tdd",
+            "# TDD Skill\n",
+        );
+        create_skill_dir(
+            root,
+            "skills/upstream/skills/engineering/triage",
+            "# Triage\n",
+        );
 
         let skills = serde_json::json!({
             "tdd": {
@@ -234,12 +290,36 @@ mod tests {
         let (stdout, _stderr, code) = run_check(&check_script_path(), root);
         assert_eq!(code, 0, "FIX run should exit 0, stdout: {}", stdout);
 
-        assert!(stdout.contains("FIX: tdd →"), "tdd should have FIX, got: {}", stdout);
-        assert!(stdout.contains("FIX: triage →"), "triage should have FIX, got: {}", stdout);
-        assert!(stdout.contains("PASS: tdd"), "tdd should PASS after FIX, got: {}", stdout);
-        assert!(stdout.contains("PASS: triage"), "triage should PASS after FIX, got: {}", stdout);
-        assert!(!stdout.contains("FAIL"), "should not contain FAIL, got: {}", stdout);
-        assert!(stdout.contains("ALL PASS"), "should contain ALL PASS, got: {}", stdout);
+        assert!(
+            stdout.contains("FIX: tdd →"),
+            "tdd should have FIX, got: {}",
+            stdout
+        );
+        assert!(
+            stdout.contains("FIX: triage →"),
+            "triage should have FIX, got: {}",
+            stdout
+        );
+        assert!(
+            stdout.contains("PASS: tdd"),
+            "tdd should PASS after FIX, got: {}",
+            stdout
+        );
+        assert!(
+            stdout.contains("PASS: triage"),
+            "triage should PASS after FIX, got: {}",
+            stdout
+        );
+        assert!(
+            !stdout.contains("FAIL"),
+            "should not contain FAIL, got: {}",
+            stdout
+        );
+        assert!(
+            stdout.contains("ALL PASS"),
+            "should contain ALL PASS, got: {}",
+            stdout
+        );
 
         // Verify lockfile was updated
         let lock_content = fs::read_to_string(root.join(".skill-lock.json")).unwrap();
@@ -321,7 +401,8 @@ mod tests {
         // No github skills with valid paths → behaves like no github skills
         assert_eq!(code, 0, "should exit 0, stdout: {}", stdout);
         assert!(
-            stdout.contains("SKIP: bad-skill — unexpected skillPath format: not-a-valid-skill-path"),
+            stdout
+                .contains("SKIP: bad-skill — unexpected skillPath format: not-a-valid-skill-path"),
             "should contain SKIP line, got: {}",
             stdout
         );

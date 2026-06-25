@@ -45,7 +45,10 @@ fn check_gh_authenticated() -> CheckResult {
 }
 
 fn check_git_remote() -> CheckResult {
-    match Command::new("git").args(["remote", "get-url", "origin"]).output() {
+    match Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .output()
+    {
         Ok(o) if o.status.success() => {
             let remote = String::from_utf8_lossy(&o.stdout).trim().to_string();
             if remote.is_empty() {

@@ -85,10 +85,7 @@ fn discover_upstream(root: &Path, skills: &mut Vec<Skill>) {
     };
     // serde_json with preserve_order iterates in insertion order
     for (name, info) in skills_map {
-        let skill_path = info
-            .get("skillPath")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let skill_path = info.get("skillPath").and_then(|v| v.as_str()).unwrap_or("");
         if skill_path.is_empty() {
             continue;
         }
@@ -175,7 +172,8 @@ fn generate_report(skills: &[Skill], results: &[SkillResult]) -> String {
     let fail_count = total - pass_count;
 
     // Source-level counts
-    let (upstream_total, upstream_pass, upstream_fail) = count_by_source(skills, results, "upstream");
+    let (upstream_total, upstream_pass, upstream_fail) =
+        count_by_source(skills, results, "upstream");
     let (autopilot_total, autopilot_pass, autopilot_fail) =
         count_by_source(skills, results, "autopilot");
 
@@ -183,7 +181,10 @@ fn generate_report(skills: &[Skill], results: &[SkillResult]) -> String {
 
     // ── Header ──
     wln!(report, "{}", sep);
-    wln!(report, "FRONTMATTER VALIDATION REPORT — reasonix compatibility");
+    wln!(
+        report,
+        "FRONTMATTER VALIDATION REPORT — reasonix compatibility"
+    );
     wln!(report, "{}", sep);
     wln!(report, "Date: {}", date_str);
     wln!(
@@ -197,16 +198,17 @@ fn generate_report(skills: &[Skill], results: &[SkillResult]) -> String {
 
     // ── Upstream section ──
     wln!(report, "--- Upstream Skills ({}) ---", upstream_total);
-    wln!(report, "Passed: {} / Failed: {}", upstream_pass, upstream_fail);
+    wln!(
+        report,
+        "Passed: {} / Failed: {}",
+        upstream_pass,
+        upstream_fail
+    );
     wln!(report);
     write_skill_entries(&mut report, skills, results, "upstream", true);
 
     // ── Autopilot section ──
-    wln!(
-        report,
-        "--- Autopilot Skills ({}) ---",
-        autopilot_total
-    );
+    wln!(report, "--- Autopilot Skills ({}) ---", autopilot_total);
     wln!(
         report,
         "Passed: {} / Failed: {}",
@@ -284,7 +286,11 @@ fn generate_report(skills: &[Skill], results: &[SkillResult]) -> String {
 }
 
 /// Returns (total, pass, fail) for a given source.
-fn count_by_source(skills: &[Skill], results: &[SkillResult], source: &str) -> (usize, usize, usize) {
+fn count_by_source(
+    skills: &[Skill],
+    results: &[SkillResult],
+    source: &str,
+) -> (usize, usize, usize) {
     let mut total = 0;
     let mut pass = 0;
     let mut fail = 0;
@@ -445,9 +451,18 @@ mod tests {
     #[test]
     fn project_root_contains_expected_markers() {
         let root = project_root();
-        assert!(root.join("Cargo.toml").exists(), "project root must contain Cargo.toml");
-        assert!(root.join("validation").is_dir(), "project root must contain validation/ directory");
-        assert!(root.join(".skill-lock.json").exists(), "project root must contain .skill-lock.json");
+        assert!(
+            root.join("Cargo.toml").exists(),
+            "project root must contain Cargo.toml"
+        );
+        assert!(
+            root.join("validation").is_dir(),
+            "project root must contain validation/ directory"
+        );
+        assert!(
+            root.join(".skill-lock.json").exists(),
+            "project root must contain .skill-lock.json"
+        );
     }
 
     // ── any_validation_failed (exit-code branching) ─────────────────────
@@ -565,7 +580,10 @@ mod tests {
         // We check that the report is non-empty and ends with a newline
         // (the OVERALL line's trailing \n).
         assert!(!report.is_empty(), "report must not be empty");
-        assert!(report.ends_with('\n'), "report should end with newline (last line's \\n)");
+        assert!(
+            report.ends_with('\n'),
+            "report should end with newline (last line's \\n)"
+        );
     }
 
     // ── Skill discovery (integration, uses real repository) ─────────────

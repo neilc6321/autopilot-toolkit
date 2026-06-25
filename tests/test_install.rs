@@ -185,7 +185,8 @@ mod tests {
         assert_ne!(code, 0, "unknown subcommand should exit non-zero");
         let combined = format!("{}{}", out, err);
         assert!(
-            combined.to_lowercase().contains("unknown") || combined.to_lowercase().contains("usage"),
+            combined.to_lowercase().contains("unknown")
+                || combined.to_lowercase().contains("usage"),
             "unknown subcommand should print error about unknown/usage, got: {}",
             combined
         );
@@ -398,7 +399,10 @@ mod tests {
             conflict_dir.join("important.txt").is_file(),
             "precious file should be preserved"
         );
-        assert!(!conflict_dir.is_symlink(), "no symlink should be created over real dir");
+        assert!(
+            !conflict_dir.is_symlink(),
+            "no symlink should be created over real dir"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -586,13 +590,8 @@ mod tests {
         fs::create_dir_all(&real_dir).unwrap();
         fs::write(real_dir.join("data.txt"), "keep me\n").unwrap();
 
-        let (_out, _err, code) = run_install(
-            &["unlink", "my-real-dir"],
-            &home,
-            Some(&skills),
-            None,
-            None,
-        );
+        let (_out, _err, code) =
+            run_install(&["unlink", "my-real-dir"], &home, Some(&skills), None, None);
 
         assert_eq!(code, 0, "unlink real directory should exit 0");
         assert!(real_dir.is_dir(), "real directory should be preserved");
@@ -705,8 +704,14 @@ mod tests {
         );
 
         assert_eq!(code, 0, "link-principles idempotent should exit 0");
-        assert!(principles.is_symlink(), "principles symlink should still exist");
-        assert!(principles.is_dir(), "principles symlink should still be valid");
+        assert!(
+            principles.is_symlink(),
+            "principles symlink should still exist"
+        );
+        assert!(
+            principles.is_dir(),
+            "principles symlink should still be valid"
+        );
         assert_eq!(
             read_link_target(&principles).unwrap(),
             src_principles,
@@ -739,7 +744,10 @@ mod tests {
 
         // Break the symlink by removing the source
         fs::remove_dir_all(&src_principles).unwrap();
-        assert!(principles.is_symlink(), "principles symlink should still exist");
+        assert!(
+            principles.is_symlink(),
+            "principles symlink should still exist"
+        );
         assert!(!principles.is_dir(), "principles symlink should be broken");
 
         // Call link-principles while source is still missing — should detect broken
@@ -759,14 +767,15 @@ mod tests {
             "should warn about source not existing, got: {}",
             combined
         );
-        assert!(
-            !principles.exists(),
-            "broken symlink should be removed"
-        );
+        assert!(!principles.exists(), "broken symlink should be removed");
 
         // Recreate source and run link-principles — should create fresh symlink
         fs::create_dir_all(&src_principles).unwrap();
-        fs::write(src_principles.join("karpathy.md"), "Be curious. (restored)\n").unwrap();
+        fs::write(
+            src_principles.join("karpathy.md"),
+            "Be curious. (restored)\n",
+        )
+        .unwrap();
 
         let (_out2, _err2, code2) = run_install(
             &["link-principles", &src_principles.to_string_lossy()],
@@ -857,19 +866,28 @@ mod tests {
             None,
         );
 
-        assert_ne!(code, 0, "link-principles real-dir conflict should exit non-zero");
+        assert_ne!(
+            code, 0,
+            "link-principles real-dir conflict should exit non-zero"
+        );
         let combined = format!("{}{}", out, err);
         assert!(
             combined.to_lowercase().contains("real directory"),
             "should warn about real directory, got: {}",
             combined
         );
-        assert!(principles.is_dir(), "real principles directory should be preserved");
+        assert!(
+            principles.is_dir(),
+            "real principles directory should be preserved"
+        );
         assert!(
             principles.join("personal.md").is_file(),
             "real principles file should be preserved"
         );
-        assert!(!principles.is_symlink(), "no symlink should be created over real principles dir");
+        assert!(
+            !principles.is_symlink(),
+            "no symlink should be created over real principles dir"
+        );
     }
 
     // ═══════════════════════════════════════════════════════════════════════

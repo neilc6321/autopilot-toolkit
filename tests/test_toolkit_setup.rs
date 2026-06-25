@@ -388,10 +388,7 @@ fn run_toolkit_setup_execute(
 }
 
 /// Run verification: check all expected skills and produce a report.
-fn run_toolkit_setup_verify(
-    ctx: &TestContext,
-    expected: &[(String, PathBuf)],
-) -> String {
+fn run_toolkit_setup_verify(ctx: &TestContext, expected: &[(String, PathBuf)]) -> String {
     let mut report: Vec<String> = Vec::new();
     let mut missing_count = 0;
     let mut damaged_count = 0;
@@ -558,7 +555,9 @@ mod tests {
         // Wrong target for skill-b: point to skill-c's source
         let skill_b_target = ctx.skills_dir().join("skill-b");
         fs::remove_file(&skill_b_target).unwrap_or(());
-        let skill_c_src = ctx.path().join("skills/upstream/skills/engineering/skill-c");
+        let skill_c_src = ctx
+            .path()
+            .join("skills/upstream/skills/engineering/skill-c");
         std::os::unix::fs::symlink(&skill_c_src, &skill_b_target)
             .expect("create wrong target symlink for skill-b");
 
@@ -612,13 +611,14 @@ mod tests {
         let _ = run_toolkit_setup_execute(&install, &ctx, &expected);
 
         // Create an orphaned symlink (pointing under PROJECT_ROOT, not in expected set)
-        let old_skill_dir = ctx.path().join("skills/upstream/skills/engineering/old-skill");
+        let old_skill_dir = ctx
+            .path()
+            .join("skills/upstream/skills/engineering/old-skill");
         fs::create_dir_all(&old_skill_dir).expect("create old-skill dir");
         fs::write(old_skill_dir.join("SKILL.md"), "# Old Skill\n").expect("write old SKILL.md");
 
         let orphan_target = ctx.skills_dir().join("old-skill");
-        std::os::unix::fs::symlink(&old_skill_dir, &orphan_target)
-            .expect("create orphan symlink");
+        std::os::unix::fs::symlink(&old_skill_dir, &orphan_target).expect("create orphan symlink");
 
         // Verify orphan exists before execution
         assert!(
@@ -668,7 +668,14 @@ mod tests {
         // Pre-setup: install skill-a and skill-b correctly
         for (name, src) in &expected {
             if name == "skill-a" || name == "skill-b" {
-                let _ = run_sync(&install, ctx.home(), ctx.skills_dir(), ctx.path(), name, src);
+                let _ = run_sync(
+                    &install,
+                    ctx.home(),
+                    ctx.skills_dir(),
+                    ctx.path(),
+                    name,
+                    src,
+                );
             }
         }
 
@@ -756,7 +763,14 @@ mod tests {
         // Install skill-a only
         for (name, src) in &expected {
             if name == "skill-a" {
-                let _ = run_sync(&install, ctx.home(), ctx.skills_dir(), ctx.path(), name, src);
+                let _ = run_sync(
+                    &install,
+                    ctx.home(),
+                    ctx.skills_dir(),
+                    ctx.path(),
+                    name,
+                    src,
+                );
             }
         }
 
