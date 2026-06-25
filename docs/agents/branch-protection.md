@@ -18,8 +18,8 @@ All changes must go through pull requests. Direct push is blocked — including 
 
 `.github/workflows/ci.yml` — triggers on `pull_request`:
 
-- **validation** — `bash validation/run.sh` (SKILL.md frontmatter checks)
-- **test** — `bash tests/test_install.sh` (install script integration tests)
+- **validation** — `./validation/run.rs` (SKILL.md frontmatter checks)
+- **test** — `./tests/test_install.rs` (install script integration tests)
 
 Both jobs run in parallel on `ubuntu-latest` with minimal permissions (`permissions: {}`).
 
