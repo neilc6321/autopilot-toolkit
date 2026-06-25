@@ -16,6 +16,8 @@ enum CheckResult {
     Fail(String),
 }
 
+type CheckFn = fn() -> CheckResult;
+
 fn check_gh_installed() -> CheckResult {
     match Command::new("gh").arg("--version").output() {
         Ok(o) if o.status.success() => {
@@ -65,7 +67,7 @@ fn main() {
     let mut all_pass = true;
     println!("=== GitHub Environment Check ===");
 
-    let checks: [(&str, fn() -> CheckResult); 3] = [
+    let checks: [(&str, CheckFn); 3] = [
         ("gh CLI:", check_gh_installed),
         ("gh auth:", check_gh_authenticated),
         ("git remote:", check_git_remote),
