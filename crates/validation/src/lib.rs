@@ -54,7 +54,10 @@ pub fn parse_frontmatter(content: &str) -> Result<HashMap<String, String>, Vec<S
     let lines: Vec<&str> = content.lines().collect();
 
     // Check opening delimiter (line 0) — allow trailing \r for CRLF
-    let first = lines.first().map(|s| s.trim_end_matches('\r')).unwrap_or("");
+    let first = lines
+        .first()
+        .map(|s| s.trim_end_matches('\r'))
+        .unwrap_or("");
     if first != "---" {
         errors.push("Missing opening --- delimiter".to_string());
         return Err(errors);
@@ -180,10 +183,10 @@ pub fn validate_skill(content: &str) -> ValidationResult {
     };
 
     // Check 1: Required fields
-    if fields.get("name").map_or(true, |v| v.is_empty()) {
+    if fields.get("name").is_none_or(|v| v.is_empty()) {
         issues.push("Missing required field: name".to_string());
     }
-    if fields.get("description").map_or(true, |v| v.is_empty()) {
+    if fields.get("description").is_none_or(|v| v.is_empty()) {
         issues.push("Missing required field: description".to_string());
     }
 
@@ -215,14 +218,9 @@ pub fn validate_skill(content: &str) -> ValidationResult {
     }
 
     // Check 5: allowed-tools for subagents
-    if fields.get("runAs").map_or(false, |v| v == "subagent") {
-        if fields
-            .get("allowed-tools")
-            .map_or(true, |v| v.is_empty())
-        {
-            issues.push(
-                "runAs is \"subagent\" but allowed-tools is not defined".to_string(),
-            );
+    if fields.get("runAs").is_some_and(|v| v == "subagent") {
+        if fields.get("allowed-tools").is_none_or(|v| v.is_empty()) {
+            issues.push("runAs is \"subagent\" but allowed-tools is not defined".to_string());
         }
     }
 
@@ -490,7 +488,11 @@ runAs: agent
             "description",
         );
         // Should report multiple issues (at least description + name + compatibility + runAs)
-        assert!(result.issues.len() >= 2, "expected multiple issues, got: {:?}", result.issues);
+        assert!(
+            result.issues.len() >= 2,
+            "expected multiple issues, got: {:?}",
+            result.issues
+        );
     }
 
     // ── Additional parse_frontmatter unit tests ────────────────────────
