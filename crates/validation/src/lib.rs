@@ -218,10 +218,10 @@ pub fn validate_skill(content: &str) -> ValidationResult {
     }
 
     // Check 5: allowed-tools for subagents
-    if fields.get("runAs").is_some_and(|v| v == "subagent") {
-        if fields.get("allowed-tools").is_none_or(|v| v.is_empty()) {
-            issues.push("runAs is \"subagent\" but allowed-tools is not defined".to_string());
-        }
+    if fields.get("runAs").is_some_and(|v| v == "subagent")
+        && fields.get("allowed-tools").is_none_or(|v| v.is_empty())
+    {
+        issues.push("runAs is \"subagent\" but allowed-tools is not defined".to_string());
     }
 
     let passed = issues.is_empty();
