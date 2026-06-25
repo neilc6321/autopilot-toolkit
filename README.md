@@ -2,12 +2,31 @@
 
 19 skills for reasonix — upstream engineering/productivity skills plus autopilot workflow (orchestrator → implementer → reviewer). Deployed via symlinks to `~/.agents/skills/`.
 
+## Prerequisites
+
+The Rust-based installer (`install.rs`) requires [rust-script](https://github.com/fornwall/rust-script):
+
+```bash
+brew install rust-script
+# or: cargo install rust-script
+```
+
 ## Installation
 
 First-time setup — clone the repository and run toolkit setup:
 
 ```bash
 git clone git@github.com:matthewye/autopilot-toolkit.git && cd autopilot-toolkit && /toolkit-setup
+```
+
+## Commands
+
+Manage skill symlinks with `install.rs`:
+
+```bash
+./install.rs sync <name> <src>       # symlink ~/.agents/skills/<name> → <src>
+./install.rs unlink <name>           # remove a toolkit-owned symlink
+./install.rs link-principles <src>   # symlink ~/.agents/principles → <src>
 ```
 
 ## Updating
