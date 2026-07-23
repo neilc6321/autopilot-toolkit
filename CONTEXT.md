@@ -1,6 +1,6 @@
 # Autopilot Toolkit
 
-A skill-pack repo targeting Reasonix and Codex. Ships 19 skills — 13 upstream (from mattpocock/skills, tracked in `.skill-lock.json`) plus 6 autopilot (custom, living in `skills/autopilot/`). 17 skills are runtime-agnostic (work on any Agent Skills-compliant agent); 4 autopilot workflow skills have per-runtime variants due to differing subagent dispatch mechanisms.
+A skill-pack repo targeting Reasonix, Codex, and Kimi Code. Ships 19 skills — 13 upstream (from mattpocock/skills, tracked in `.skill-lock.json`) plus 6 autopilot (custom, living in `skills/autopilot/`). 15 skills are runtime-agnostic (work on any Agent Skills-compliant agent); 4 autopilot workflow skills have per-runtime variants due to differing subagent dispatch mechanisms.
 
 ## Language
 
@@ -17,7 +17,7 @@ The origin of a toolkit skill — either `upstream` (mattpocock/skills, synced v
 _Avoid_: skill type, skill category
 
 **Runtime-agnostic skill**:
-A skill whose body contains only methodology instructions — no references to runtime-specific tools (`run_skill`, `complete_step`), dispatch mechanisms, or CLI commands. Works on any Agent Skills-compliant agent (Reasonix, Codex, Claude Code, etc.). 17 of 19 toolkit skills fall in this category.
+A skill whose body contains only methodology instructions — no references to runtime-specific tools (`run_skill`, `complete_step`), dispatch mechanisms, or CLI commands. Works on any Agent Skills-compliant agent (Reasonix, Codex, Kimi Code, Claude Code, etc.). 15 of 19 toolkit skills fall in this category.
 _Avoid_: universal skill, portable skill
 
 **Runtime-coupled skill**:
@@ -25,11 +25,11 @@ A skill whose body depends on runtime-specific mechanisms (subagent dispatch, se
 _Avoid_: platform-specific skill, bound skill
 
 **Skill variant**:
-A runtime-specific version of a runtime-coupled skill. Same skill identity (name, purpose), different body — the Reasonix variant uses `run_skill` dispatch and `complete_step`; the Codex variant uses `spawn agent` and `.codex/agents/*.toml` custom agents. Each variant is a separate source file: `SKILL.reasonix.md` or `SKILL.codex.md`.
+A runtime-specific version of a runtime-coupled skill. Same skill identity (name, purpose), different body — the Reasonix variant uses `run_skill` dispatch and `complete_step`; the Codex variant uses `spawn agent` and `.codex/agents/*.toml` custom agents; the Kimi variant uses `Agent`-tool dispatch and reads session traces from `~/.kimi-code/sessions/`. Each variant is a separate source directory: `<skill>/reasonix/`, `<skill>/codex/`, or `<skill>/kimi/`.
 _Avoid_: skill version, skill flavor
 
 **Variant source**:
-A file in the source tree that carries a specific runtime variant of a runtime-coupled skill. Named `SKILL.<runtime>.md` (e.g. `SKILL.reasonix.md`, `SKILL.codex.md`) alongside any runtime-agnostic supporting files. The install script selects the matching variant based on `--target`.
+A directory in the source tree that carries a specific runtime variant of a runtime-coupled skill. Named `<skill>/<runtime>/` (e.g. `autopilot-orchestrator/reasonix/`, `autopilot-orchestrator/kimi/`) containing a `SKILL.md` plus any runtime-specific supporting files (`references/`, `agent.toml`). The install script selects the matching variant based on `--target`; Kimi variants install via `--shared`.
 _Avoid_: variant file, alternate body
 
 ## Install model
@@ -37,19 +37,21 @@ _Avoid_: variant file, alternate body
 **Install target**:
 The directory where a skill symlink is deployed. Varies by skill category and runtime target:
 
-| Skill category | Reasonix target | Codex target |
-|---|---|---|
-| Runtime-agnostic | `~/.agents/skills/<name>/` | `~/.agents/skills/<name>/` |
-| Runtime-coupled | `~/.reasonix/skills/<name>/` | `~/.codex/skills/<name>/` |
+| Skill category | Reasonix target | Codex target | Kimi target |
+|---|---|---|---|
+| Runtime-agnostic | `~/.agents/skills/<name>/` | `~/.agents/skills/<name>/` | `~/.agents/skills/<name>/` |
+| Runtime-coupled | `~/.reasonix/skills/<name>/` | `~/.codex/skills/<name>/` | `~/.agents/skills/<name>/` |
+
+Kimi Code has no agent-exclusive skill directory — its coupled variants live in the shared directory and are recognized as expected residents there by every target's orphan scan.
 
 _Avoid_: skills dir, agents skills
 
 **Agent-exclusive skill directory**:
-A skill directory scanned by exactly one agent runtime. `~/.reasonix/skills/` (Reasonix only) and `~/.codex/skills/` (Codex only). Runtime-coupled skill variants are installed here to eliminate cross-agent conflicts without relying on `compatibility` field filtering.
+A skill directory scanned by exactly one agent runtime. `~/.reasonix/skills/` (Reasonix only) and `~/.codex/skills/` (Codex only). Runtime-coupled skill variants are installed here to eliminate cross-agent conflicts without relying on `compatibility` field filtering. Kimi Code has no such directory.
 _Avoid_: private skills dir, isolated directory
 
 **Shared skill directory**:
-`~/.agents/skills/` — the Agent Skills standard shared location, scanned by both Reasonix and Codex. Runtime-agnostic skills are installed here so both agents can discover them from a single copy.
+`~/.agents/skills/` — the Agent Skills standard shared location, scanned by Reasonix, Codex, and Kimi Code. Runtime-agnostic skills and Kimi variants of runtime-coupled skills are installed here.
 _Avoid_: common skills dir, public skills dir
 
 **Custom agent** (Codex only):
