@@ -67,7 +67,7 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-RELEASE_URL="https://github.com/neilc6321/autopilot-toolkit/releases/download/${REQUESTED_VERSION}/autopilot-toolkit-${REQUESTED_VERSION}.tar.gz"
+RELEASE_URL="__REPO_URL__/releases/download/${REQUESTED_VERSION}/autopilot-toolkit-${REQUESTED_VERSION}.tar.gz"
 
 # ── check if already installed ───────────────────────────────────────────
 

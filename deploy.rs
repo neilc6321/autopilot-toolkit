@@ -255,6 +255,29 @@ fn get_version(project_root: &Path) -> Result<String, anyhow::Error> {
         .to_string())
 }
 
+fn get_repo_slug(project_root: &Path) -> Result<String, anyhow::Error> {
+    let remote_url = String::from_utf8(
+        Command::new("git")
+            .args(&["remote", "get-url", "origin"])
+            .current_dir(project_root)
+            .output()
+            .context("git remote get-url failed")?
+            .stdout,
+    )
+    .context("invalid UTF-8")?
+    .trim()
+    .to_string();
+
+    if let Some(cap) = remote_url.strip_prefix("https://github.com/") {
+        Ok(cap.trim_end_matches(".git").to_string())
+    } else if let Some(cap) = remote_url.strip_prefix("git@github.com:") {
+        Ok(cap.trim_end_matches(".git").to_string())
+    } else {
+        anyhow::bail!("cannot parse GitHub repo from remote: {}", remote_url)
+    }
+}
+
+
 fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let version = get_version(project_root)?;
     let dist_dir = project_root.join("dist");
@@ -363,7 +386,11 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let template_path = project_root.join("templates").join("install.sh.in");
     let template_content = std::fs::read_to_string(&template_path)
         .with_context(|| format!("template not found at {}", template_path.display()))?;
-    let install_content = template_content.replace("__VERSION__", &version);
+    // Detect repo URL for install.sh
+    let repo_url = get_repo_slug(project_root)?;
+    let install_content = template_content
+        .replace("__VERSION__", &version)
+        .replace("__REPO_URL__", &format!("https://github.com/{}", repo_url));
 
     // ── copy bootstrap.sh ──
     let bootstrap_src = project_root.join("bootstrap.sh");
@@ -615,7 +642,8 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
         anyhow::bail!("not on a git tag — create and push a tag first, e.g.: git tag v1.0.0 && git push origin v1.0.0");
     }
 
-    println!("==> Releasing {}", tag);
+    let repo_slug = get_repo_slug(project_root)?;
+    println!("==> Releasing {} to {}", tag, repo_slug);
 
     // Build the tarball
     pack_command(project_root)?;
@@ -646,7 +674,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     }
 
     println!("==> Released {} to GitHub", tag);
-    println!("   Install: curl -sSL https://github.com/neilc6321/autopilot-toolkit/releases/download/{}/install.sh | bash", tag);
+    println!("   Install: curl -sSL https://github.com/{}/releases/download/{}/install.sh | bash", repo_slug, tag);
     Ok(())
 }
 
