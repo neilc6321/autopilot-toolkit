@@ -362,13 +362,25 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let bootstrap_src = project_root.join("bootstrap.sh");
     if bootstrap_src.is_file() {
         std::fs::copy(&bootstrap_src, autopilot_staging.join("bootstrap.sh"))?;
-        // Ensure executable
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
             let mut perms = std::fs::metadata(autopilot_staging.join("bootstrap.sh"))?.permissions();
             perms.set_mode(0o755);
             std::fs::set_permissions(autopilot_staging.join("bootstrap.sh"), perms)?;
+        }
+    }
+
+    // ── copy uninstall.sh ──
+    let uninstall_src = project_root.join("templates").join("uninstall.sh");
+    if uninstall_src.is_file() {
+        std::fs::copy(&uninstall_src, autopilot_staging.join("uninstall.sh"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(autopilot_staging.join("uninstall.sh"))?.permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(autopilot_staging.join("uninstall.sh"), perms)?;
         }
     }
 
@@ -626,6 +638,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let status = Command::new("gh")
         .args(&["release", "create", &tag,
             tarball.to_str().unwrap(), install_script.to_str().unwrap(),
+            project_root.join("templates").join("uninstall.sh").to_str().unwrap(),
             "-R", &repo_slug,
             "--title", &format!("autopilot-toolkit {}", short),
             "--notes", &format!("Commit: {}\n\nInstall:\n```\ncurl -sSL https://github.com/{}/releases/download/{}/install.sh | bash\n```", short, repo_slug, tag),
