@@ -654,10 +654,6 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
-        usage();
-    }
-
     // Derive PROJECT_ROOT from script path (equivalent to bash's $(cd "$(dirname "$0")" && pwd))
     let script_path = PathBuf::from(&args[0]);
     let project_root = env::var("PROJECT_ROOT")
@@ -691,6 +687,13 @@ fn main() -> anyhow::Result<()> {
     let codex_agents_dir = env::var("CODEX_AGENTS_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|_| PathBuf::from(&home).join(".codex/agents"));
+
+    // No subcommand: auto pack + release
+    if args.len() < 2 {
+        pack_command(&project_root)?;
+        release_command(&project_root)?;
+        return Ok(());
+    }
 
     let subcommand = &args[1];
     let rest = &args[2..];
