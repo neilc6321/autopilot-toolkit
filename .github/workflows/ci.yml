@@ -28,11 +28,11 @@ jobs:
       - name: Install rust-script
         run: cargo install rust-script
       - name: Run build tests
-        run: rust-script --test tests/test_build.rs -- --test-threads=1
+        run: RUST_TEST_THREADS=1 rust-script --test tests/test_build.rs
       - name: Run toolkit-setup tests
-        run: rust-script --test tests/test_toolkit_setup.rs -- --test-threads=1
+        run: RUST_TEST_THREADS=1 rust-script --test tests/test_toolkit_setup.rs
       - name: Run deployment contract tests
-        run: rust-script --test tests/test_install.rs -- --test-threads=1
+        run: RUST_TEST_THREADS=1 rust-script --test tests/test_install.rs
 
   test-shell:
     name: test (shell)
