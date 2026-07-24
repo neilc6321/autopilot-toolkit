@@ -8,7 +8,6 @@
 //! Run: rust-script --test tests/test_install.rs
 
 use std::fs;
-use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -134,15 +133,15 @@ fn setup_mock_project(root: &Path) {
 
     // Init git repo so get_version works
     let _ = Command::new("git")
-        .args(&["init"])
+        .args(["init"])
         .current_dir(root)
         .output();
     let _ = Command::new("git")
-        .args(&["add", "-A"])
+        .args(["add", "-A"])
         .current_dir(root)
         .output();
     let _ = Command::new("git")
-        .args(&["commit", "-m", "init"])
+        .args(["commit", "-m", "init"])
         .current_dir(root)
         .output();
 }
@@ -271,7 +270,7 @@ mod tests {
         let (_, _, code) = run_deploy(&["dev"], &home, Some(&skills), Some(&project));
         assert_eq!(code, 0);
 
-        let mtime1 = fs::symlink_metadata(skills.join("test-skill"))
+        let _mtime1 = fs::symlink_metadata(skills.join("test-skill"))
             .unwrap()
             .modified()
             .unwrap();
