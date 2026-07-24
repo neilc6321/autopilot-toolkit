@@ -2,6 +2,7 @@
 # Integration tests for install.sh
 # Run: bash tests/test_install.sh
 set -euo pipefail
+trap 'echo "ERROR at line $LINENO"' ERR
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BOOTSTRAP_SCRIPT="${SCRIPT_DIR}/../bootstrap.sh"
