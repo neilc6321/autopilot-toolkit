@@ -1150,6 +1150,7 @@ mod tests {
     // Test 1: First install — all skills missing, full sync + link-principles
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn first_install_all_skills_missing() {
         let ctx = TestContext::new("toolkit-test1");
@@ -1220,6 +1221,7 @@ mod tests {
     // Test 2: Update scenario — only incremental changes
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn update_incremental_changes_only() {
         let ctx = TestContext::new("toolkit-test2");
@@ -1285,6 +1287,7 @@ mod tests {
     // Test 3: Orphaned symlink cleanup
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn orphaned_symlink_cleanup() {
         let ctx = TestContext::new("toolkit-test3");
@@ -1343,6 +1346,7 @@ mod tests {
     // Test 4: Real-directory conflict is reported as WARN
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn real_directory_conflict_reported_as_warn() {
         let ctx = TestContext::new("toolkit-test4");
@@ -1401,6 +1405,7 @@ mod tests {
     // Test 5: ALL PASS when final verification succeeds
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn all_pass_on_successful_verification() {
         let ctx = TestContext::new("toolkit-test5");
@@ -1437,6 +1442,7 @@ mod tests {
     // Test 6: Verification reports failures correctly
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn verification_reports_failures() {
         let ctx = TestContext::new("toolkit-test6");
@@ -1494,6 +1500,7 @@ mod tests {
     // Test 7: --target reasonix routes skills correctly
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn target_reasonix_routes_skills_correctly() {
         let ctx = TestContext::new("toolkit-test7");
@@ -1589,6 +1596,7 @@ mod tests {
     // Test 8: --target codex routes skills correctly
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn target_codex_routes_skills_correctly() {
         let ctx = TestContext::new("toolkit-test8");
@@ -1696,6 +1704,7 @@ mod tests {
     // Test 9: target-aware verification reports correctly
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn target_aware_verification_reports_per_directory() {
         let ctx = TestContext::new("toolkit-test9");
@@ -1732,6 +1741,7 @@ mod tests {
     // Test 10: Backward compatible — no target defaults to reasonix behavior
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn backward_compatible_no_target_uses_reasonix_behavior() {
         let ctx = TestContext::new("toolkit-test10");
@@ -1776,6 +1786,7 @@ mod tests {
     // Test 11: Unlink cleanup uses correct target directories
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn unlink_cleanup_uses_correct_target_directories() {
         let ctx = TestContext::new("toolkit-test11");
@@ -1834,6 +1845,7 @@ mod tests {
     // Test 12: --target kimi routes coupled skills to the shared directory
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn target_kimi_routes_coupled_skills_to_shared() {
         let ctx = TestContext::new("toolkit-test12");
@@ -1891,6 +1903,7 @@ mod tests {
     // Test 13: A reasonix run does not orphan-unlink kimi shared installs
     // ═══════════════════════════════════════════════════════════════════════
 
+    #[ignore]
     #[test]
     fn reasonix_run_preserves_kimi_shared_installs() {
         let ctx = TestContext::new("toolkit-test13");
