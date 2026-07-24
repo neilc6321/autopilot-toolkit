@@ -893,7 +893,7 @@ JSONEOF
 
 if [[ ! -f "${FULL_TARBALL}" ]]; then
     echo "ERROR: Build tarball not found: ${FULL_TARBALL}"
-    echo "Run 'rust-script install.rs build' first."
+    echo "Run 'rust-script deploy.rs pack' first."
     exit 1
 fi
 

@@ -6,7 +6,7 @@
 //! tempfile = "3"
 //! ```
 //!
-//! Integration tests for install.rs build subcommand.
+//! Integration tests for deploy.rs pack subcommand.
 //! Build -> extract -> verify structure and metadata (AC 9).
 //!
 //! Run: rust-script --test tests/test_build.rs
@@ -27,26 +27,26 @@ fn project_root() -> PathBuf {
     let src = Path::new(file!());
     if let (Some(_tests_dir), Some(proj)) = (src.parent(), src.parent().and_then(|p| p.parent())) {
         let candidate = proj.to_path_buf();
-        if candidate.join("install.rs").exists() {
+        if candidate.join("deploy.rs").exists() {
             return candidate;
         }
     }
     if let Ok(root) = std::env::var("PROJECT_ROOT") {
         let p = PathBuf::from(&root);
-        if p.join("install.rs").exists() {
+        if p.join("deploy.rs").exists() {
             return p;
         }
     }
-    panic!("Cannot find project root (install.rs not found)");
+    panic!("Cannot find project root (deploy.rs not found)");
 }
 
 fn install_script() -> PathBuf {
-    project_root().join("install.rs")
+    project_root().join("deploy.rs")
 }
 
 fn run_build(args: &[&str], project_root_override: Option<&Path>) -> (String, String, i32) {
     let script = install_script();
-    assert!(script.exists(), "install.rs not found at {:?}", script);
+    assert!(script.exists(), "deploy.rs not found at {:?}", script);
 
     let mut cmd = Command::new("rust-script");
     cmd.arg(&script);
@@ -57,7 +57,7 @@ fn run_build(args: &[&str], project_root_override: Option<&Path>) -> (String, St
         cmd.env("PROJECT_ROOT", r);
     }
 
-    let output = cmd.output().expect("failed to run rust-script install.rs");
+    let output = cmd.output().expect("failed to run rust-script deploy.rs");
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -277,9 +277,9 @@ mod tests {
         let mock_root = tmp.path().join("mock-project");
         fs::create_dir_all(&mock_root).unwrap();
 
-        // Copy install.rs to mock project
+        // Copy deploy.rs to mock project
         let real_install = install_script();
-        fs::copy(&real_install, mock_root.join("install.rs")).unwrap();
+        fs::copy(&real_install, mock_root.join("deploy.rs")).unwrap();
 
         // Copy templates dir
         let real_templates = project_root().join("templates");
@@ -326,7 +326,7 @@ mod tests {
             assert!(status.success());
         }
 
-        let mock_install = mock_root.join("install.rs");
+        let mock_install = mock_root.join("deploy.rs");
 
         let mut cmd = Command::new("rust-script");
         cmd.arg(&mock_install);
@@ -346,7 +346,7 @@ mod tests {
 
     #[test]
     fn sync_still_works_after_build_changes() {
-        // AC 8: install.rs sync still works (dev flow unchanged)
+        // AC 8: deploy.rs dev still works (dev flow unchanged)
         let tmp = tempfile::tempdir().expect("tempdir");
         let home = tmp.path().join("home");
         let skills = home.join(".agents/skills");

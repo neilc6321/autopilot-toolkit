@@ -24,9 +24,9 @@ git clone git@github.com:matthewye/autopilot-toolkit.git && cd autopilot-toolkit
 Manage skill symlinks with `install.rs`:
 
 ```bash
-./install.rs sync <name> <src>       # symlink ~/.agents/skills/<name> → <src>
-./install.rs unlink <name>           # remove a toolkit-owned symlink
-./install.rs link-principles <src>   # symlink ~/.agents/principles → <src>
+./deploy.rs dev <name> <src>       # symlink ~/.agents/skills/<name> → <src>
+./deploy.rs unlink <name>           # remove a toolkit-owned symlink
+./deploy.rs link-principles <src>   # symlink ~/.agents/principles → <src>
 ```
 
 ## Updating

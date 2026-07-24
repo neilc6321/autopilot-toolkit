@@ -32,7 +32,7 @@ Read `$PROJECT_ROOT/.skill-lock.json`, parse the `skills` object keys. Each key 
 $PROJECT_ROOT/skills/upstream/<skillPath directory>
 ```
 
-(install.rs uses the same pattern: `$PROJECT_ROOT/skills/upstream/$skill_path` then `dirname`.)
+(deploy.rs uses the same pattern: `$PROJECT_ROOT/skills/upstream/$skill_path` then `dirname`.)
 
 Use python3 for JSON parsing if available:
 
@@ -94,7 +94,7 @@ Categories:
 
 Runtime-agnostic skills go to the shared directory (`~/.agents/skills/`). Runtime-coupled skills go to the agent-exclusive directory for the target runtime (`~/.reasonix/skills/` or `~/.codex/skills/`) only when that target has a loadable `SKILL.md` variant — **except Kimi**, whose coupled variants install to the shared directory (`~/.agents/skills/`) via `--shared`, since Kimi Code scans the shared directory and has no agent-exclusive one.
 
-For `--target codex`, `autopilot-implementer` and `autopilot-reviewer` are custom agents only. Their `codex/` directories contain `agent.toml` without `SKILL.md`, so do not sync them into `~/.codex/skills/`; sync their TOML files via `install.rs sync --target codex --agent` instead.
+For `--target codex`, `autopilot-implementer` and `autopilot-reviewer` are custom agents only. Their `codex/` directories contain `agent.toml` without `SKILL.md`, so do not sync them into `~/.codex/skills/`; sync their TOML files via `deploy.rs dev --target codex --agent` instead.
 
 ### Also: Codex custom agents
 
@@ -107,7 +107,7 @@ has_codex_agents() {
 }
 ```
 
-If `.toml` files exist, they will be synced to `~/.codex/agents/<name>.toml` via `install.rs sync --target codex --agent`.
+If `.toml` files exist, they will be synced to `~/.codex/agents/<name>.toml` via `deploy.rs dev --target codex --agent`.
 
 ## Step 2: Diagnose
 
@@ -140,7 +140,7 @@ ls -d "$SHARED_DIR" 2>/dev/null || true
 ls -d "$TARGET_DIR" 2>/dev/null || true
 ```
 
-If a directory does not exist, it will be created by `install.rs sync` on first use. Proceed — do not stop.
+If a directory does not exist, it will be created by `deploy.rs dev` on first use. Proceed — do not stop.
 
 ### 2c. Diagnose each expected skill
 
@@ -237,7 +237,7 @@ find_orphans "$SHARED_DIR"
 
 ## Step 3: Execute
 
-Use `install.rs` subcommands with the appropriate flags. See `install.rs --help` for full reference.
+Use `deploy.rs` subcommands with the appropriate flags. See `deploy.rs --help` for full reference.
 
 ### Actions by state (per category)
 
@@ -245,9 +245,9 @@ For **agnostic** skills — use `--shared` flag to install to the shared directo
 
 | State | Action | Command |
 |-------|--------|---------|
-| missing | Create symlink | `install.rs sync <name> <src> --shared` |
-| broken | Remove broken + recreate | `install.rs sync <name> <src> --shared` |
-| wrong_target | Replace with correct target | `install.rs sync <name> <src> --shared` |
+| missing | Create symlink | `deploy.rs dev <name> <src> --shared` |
+| broken | Remove broken + recreate | `deploy.rs dev <name> <src> --shared` |
+| wrong_target | Replace with correct target | `deploy.rs dev <name> <src> --shared` |
 | real_dir | **WARN** — do NOT touch | Report conflict, skip |
 | correct | No-op | — |
 
@@ -266,20 +266,20 @@ When `SKILL.md` exists, the sync command depends on the target. For `reasonix`/`
 
 | State | Action | Command (reasonix/codex) | Command (kimi) |
 |-------|--------|--------------------------|----------------|
-| missing | Create symlink | `install.rs sync <name> <src>/<target> --target <target>` | `install.rs sync <name> <src>/kimi --shared` |
+| missing | Create symlink | `deploy.rs dev <name> <src>/<target> --target <target>` | `deploy.rs dev <name> <src>/kimi --shared` |
 | broken | Remove broken + recreate | same as missing | same as missing |
 | wrong_target | Replace with correct target | same as missing | same as missing |
 | real_dir | **WARN** — do NOT touch | Report conflict, skip | Report conflict, skip |
 | correct | No-op | — | — |
 
-Where `<target>` is `reasonix` or `codex`, and `<src>/<target>` is the variant source directory (e.g. `skills/autopilot/audit-autopilot/codex`). Do not run `install.rs sync` for a variant directory that lacks `SKILL.md` (e.g. Codex agent-only variants, or coupled skills without a `kimi/` variant on a kimi run).
+Where `<target>` is `reasonix` or `codex`, and `<src>/<target>` is the variant source directory (e.g. `skills/autopilot/audit-autopilot/codex`). Do not run `deploy.rs dev` for a variant directory that lacks `SKILL.md` (e.g. Codex agent-only variants, or coupled skills without a `kimi/` variant on a kimi run).
 
 ### Codex custom agents
 
-For `--target codex`, if a coupled skill has `.toml` agent files in its `codex/` subdirectory, sync each as a file symlink (not a copy — `install.rs sync --agent` uses symlinks like skills do):
+For `--target codex`, if a coupled skill has `.toml` agent files in its `codex/` subdirectory, sync each as a file symlink (not a copy — `deploy.rs dev --agent` uses symlinks like skills do):
 
 ```bash
-install.rs sync <agent_name> <skill_source_dir>/codex/agent.toml --target codex --agent
+deploy.rs dev <agent_name> <skill_source_dir>/codex/agent.toml --target codex --agent
 ```
 
 This creates/repairs a file symlink `~/.codex/agents/<agent_name>.toml` → `<skill_source_dir>/codex/agent.toml`. Behaviour mirrors skill sync: creates if missing, replaces if broken/wrong, warns on real-file conflict. Symlinks ensure source updates take effect immediately without re-running setup.
@@ -292,10 +292,10 @@ For each orphaned symlink found in Step 2e, remove it from the appropriate direc
 
 ```bash
 # Agnostic orphan (in shared dir):
-install.rs unlink <name> --shared
+deploy.rs unlink <name> --shared
 
 # Coupled orphan (in target dir):
-install.rs unlink <name> --target <target>
+deploy.rs unlink <name> --target <target>
 ```
 
 This removes the symlink only if its target lies under PROJECT_ROOT (safe).
@@ -305,7 +305,7 @@ This removes the symlink only if its target lies under PROJECT_ROOT (safe).
 Ensure principles symlink (unchanged — always goes to shared location):
 
 ```bash
-install.rs link-principles "$PROJECT_ROOT/principles"
+deploy.rs link-principles "$PROJECT_ROOT/principles"
 ```
 
 This creates/repairs `~/.agents/principles` → `$PROJECT_ROOT/principles`. Behaviour mirrors sync: creates if missing, replaces if broken/wrong, warns on real-dir conflict.
@@ -423,11 +423,11 @@ If any skill remains missing/broken/wrong_target after execute, report as FAIL a
 
 ## Edge Cases
 
-- **Skills directory missing**: Created automatically by `install.rs sync` on first use.
-- **Variant source directory missing**: Report as WARN and skip sync. Do not call `install.rs sync` for a missing target variant.
+- **Skills directory missing**: Created automatically by `deploy.rs dev` on first use.
+- **Variant source directory missing**: Report as WARN and skip sync. Do not call `deploy.rs dev` for a missing target variant.
 - **Codex variant has no SKILL.md**: The `codex/` subdirectory may contain only `.toml` agent files. Skip skill sync explicitly; still sync agents via `sync --target codex --agent`. If a stale toolkit-owned symlink for that name exists in `~/.codex/skills/`, unlink it as an invalid target skill entry.
-- **Real file conflict (agents)**: A real (non-symlink) file at `~/.codex/agents/<name>.toml`. Reported as WARN. install.rs refuses to overwrite real files. User must remove manually before sync can replace it with a symlink.
-- **Real directory conflict**: Reported as WARN. install.rs refuses to overwrite real directories. User must resolve manually.
+- **Real file conflict (agents)**: A real (non-symlink) file at `~/.codex/agents/<name>.toml`. Reported as WARN. deploy.rs refuses to overwrite real files. User must remove manually before sync can replace it with a symlink.
+- **Real directory conflict**: Reported as WARN. deploy.rs refuses to overwrite real directories. User must resolve manually.
 - **No changes needed**: Report "all skills already correct", ALL PASS.
 - **python3 unavailable**: Fall back to grep-based parsing of `.skill-lock.json`. Less robust but functional for standard JSON layouts.
 - **Empty .skill-lock.json skills**: Only autopilot skills in expected set. Valid scenario for minimal installs.

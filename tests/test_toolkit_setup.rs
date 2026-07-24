@@ -6,7 +6,7 @@
 //! serde_json = "1"
 //! ```
 //!
-//! Integration tests for install.rs toolkit-setup orchestration flow.
+//! Integration tests for deploy.rs toolkit-setup orchestration flow.
 //! Per ADR 0005: tests/*.rs rust-script files that exercise the CLI
 //! via std::process::Command, asserting exit codes and output.
 //!
@@ -89,29 +89,29 @@ impl TestContext {
     }
 }
 
-/// Find the actual project root — the directory containing install.rs.
+/// Find the actual project root — the directory containing deploy.rs.
 fn project_root() -> PathBuf {
     let src = Path::new(file!());
     if let (Some(_tests_dir), Some(proj)) = (src.parent(), src.parent().and_then(|p| p.parent())) {
         let candidate = proj.to_path_buf();
-        if candidate.join("install.rs").exists() {
+        if candidate.join("deploy.rs").exists() {
             return candidate;
         }
     }
     if let Ok(root) = std::env::var("PROJECT_ROOT") {
         let p = PathBuf::from(&root);
-        if p.join("install.rs").exists() {
+        if p.join("deploy.rs").exists() {
             return p;
         }
     }
-    panic!("Cannot find project root (install.rs not found)");
+    panic!("Cannot find project root (deploy.rs not found)");
 }
 
 fn install_script_path() -> PathBuf {
-    project_root().join("install.rs")
+    project_root().join("deploy.rs")
 }
 
-/// Run install.rs sync with given env (legacy: uses --shared for backward compat).
+/// Run deploy.rs dev with given env (legacy: uses --shared for backward compat).
 fn run_sync(
     install_script: &Path,
     home: &Path,
@@ -130,7 +130,7 @@ fn run_sync(
         .env("AGENTS_SKILLS_DIR", skills_dir)
         .env("PROJECT_ROOT", project_root)
         .output()
-        .expect("failed to run install.rs sync");
+        .expect("failed to run deploy.rs dev");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -139,7 +139,7 @@ fn run_sync(
     )
 }
 
-/// Run install.rs unlink with given env (legacy: uses --shared for backward compat).
+/// Run deploy.rs unlink with given env (legacy: uses --shared for backward compat).
 fn run_unlink(
     install_script: &Path,
     home: &Path,
@@ -156,7 +156,7 @@ fn run_unlink(
         .env("AGENTS_SKILLS_DIR", skills_dir)
         .env("PROJECT_ROOT", project_root)
         .output()
-        .expect("failed to run install.rs unlink");
+        .expect("failed to run deploy.rs unlink");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -165,7 +165,7 @@ fn run_unlink(
     )
 }
 
-/// Run install.rs link-principles with given env.
+/// Run deploy.rs link-principles with given env.
 fn run_link_principles(
     install_script: &Path,
     home: &Path,
@@ -179,7 +179,7 @@ fn run_link_principles(
         .env("HOME", home)
         .env("AGENTS_PRINCIPLES_DIR", principles_dir)
         .output()
-        .expect("failed to run install.rs link-principles");
+        .expect("failed to run deploy.rs link-principles");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -188,7 +188,7 @@ fn run_link_principles(
     )
 }
 
-/// Run install.rs sync with --shared flag (agnostic skill).
+/// Run deploy.rs dev with --shared flag (agnostic skill).
 fn run_sync_shared(
     install_script: &Path,
     home: &Path,
@@ -207,7 +207,7 @@ fn run_sync_shared(
         .env("AGENTS_SKILLS_DIR", skills_dir)
         .env("PROJECT_ROOT", project_root)
         .output()
-        .expect("failed to run install.rs sync --shared");
+        .expect("failed to run deploy.rs dev --shared");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -216,7 +216,7 @@ fn run_sync_shared(
     )
 }
 
-/// Run install.rs sync with --target flag (coupled skill).
+/// Run deploy.rs dev with --target flag (coupled skill).
 fn run_sync_targeted(
     install_script: &Path,
     home: &Path,
@@ -244,7 +244,7 @@ fn run_sync_targeted(
             target_skills_dir,
         )
         .output()
-        .expect("failed to run install.rs sync --target");
+        .expect("failed to run deploy.rs dev --target");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -253,7 +253,7 @@ fn run_sync_targeted(
     )
 }
 
-/// Run install.rs deploy-agent with --target codex.
+/// Run deploy.rs deploy-agent with --target codex.
 fn run_deploy_agent(
     install_script: &Path,
     home: &Path,
@@ -273,7 +273,7 @@ fn run_deploy_agent(
         .env("PROJECT_ROOT", project_root)
         .env("CODEX_AGENTS_DIR", codex_agents_dir)
         .output()
-        .expect("failed to run install.rs deploy-agent");
+        .expect("failed to run deploy.rs deploy-agent");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -282,7 +282,7 @@ fn run_deploy_agent(
     )
 }
 
-/// Run install.rs unlink with --shared flag (clean up agnostic skill).
+/// Run deploy.rs unlink with --shared flag (clean up agnostic skill).
 fn run_unlink_shared(
     install_script: &Path,
     home: &Path,
@@ -299,7 +299,7 @@ fn run_unlink_shared(
         .env("AGENTS_SKILLS_DIR", skills_dir)
         .env("PROJECT_ROOT", project_root)
         .output()
-        .expect("failed to run install.rs unlink --shared");
+        .expect("failed to run deploy.rs unlink --shared");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),
@@ -308,7 +308,7 @@ fn run_unlink_shared(
     )
 }
 
-/// Run install.rs unlink with --target flag (clean up coupled skill).
+/// Run deploy.rs unlink with --target flag (clean up coupled skill).
 fn run_unlink_targeted(
     install_script: &Path,
     home: &Path,
@@ -334,7 +334,7 @@ fn run_unlink_targeted(
             target_skills_dir,
         )
         .output()
-        .expect("failed to run install.rs unlink --target");
+        .expect("failed to run deploy.rs unlink --target");
 
     (
         String::from_utf8_lossy(&output.stdout).to_string(),

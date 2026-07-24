@@ -139,7 +139,7 @@ tar -xzf "${TARBALL_PATH}" -C "${SKILLS_DIR}"
 if [[ -d "${SKILLS_DIR}/skills" ]]; then
     for skill_dir in "${SKILLS_DIR}/skills"/*/; do
         skill_name="$(basename "${skill_dir}")"
-        mv "${skill_dir}" "${SKILLS_DIR}/${skill_name}"
+        mv -f "${skill_dir}" "${SKILLS_DIR}/${skill_name}"
     done
     rmdir "${SKILLS_DIR}/skills"
 fi

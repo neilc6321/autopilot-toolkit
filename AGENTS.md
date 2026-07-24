@@ -9,13 +9,13 @@ A skill-pack repo. The "code" is SKILL.md files — markdown with YAML frontmatt
 ## Commands
 
 ```bash
-rust-script install.rs sync <name> <src> [--target reasonix|codex] [--shared] [--agent]
-rust-script install.rs unlink <name> [--target ...] [--shared]
-rust-script install.rs link-principles <src>
+rust-script deploy.rs dev <name> <src> [--target reasonix|codex] [--shared] [--agent]
+rust-script deploy.rs unlink <name> [--target ...] [--shared]
+rust-script deploy.rs link-principles <src>
 rust-script validation/run.rs            # validate all SKILL.md frontmatter (all variants)
 rust-script --test validation/run.rs     # runner unit tests
 cargo test                               # validation library unit tests
-rust-script --test tests/test_install.rs # integration tests for install.rs
+rust-script --test tests/test_install.rs # integration tests for deploy.rs
 rust-script --test tests/test_toolkit_setup.rs
 rust-script --test tests/test_github_verify.rs
 rust-script --test tests/test_check.rs
@@ -42,7 +42,7 @@ skills/
 │   ├── audit-autopilot/          # post-hoc fidelity audit of agent execution
 │   ├── toolkit-setup/            # install/update orchestration (agnostic)
 │   └── zoom-out/                 # higher-level perspective (agnostic)
-install.rs             # symlink deployment (--target reasonix|codex, --shared → ~/.agents/skills/)
+deploy.rs             # deploy tool (dev symlink + pack/release) (--target reasonix|codex, --shared → ~/.agents/skills/)
 crates/validation/     # frontmatter validation library (strict YAML + field checks)
 validation/run.rs      # validation runner — discovers all variant sources
 tests/                 # rust-script integration tests

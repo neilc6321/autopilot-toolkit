@@ -20,24 +20,17 @@ fn warn(msg: &str) {
 
 fn usage() -> ! {
     println!(
-        "Usage: install.rs <subcommand> [args...] [--target reasonix|codex] [--shared] [--agent]"
+        "Usage: deploy.rs <subcommand> [args...] [--target reasonix|codex] [--shared] [--agent]"
     );
     println!();
     println!("Subcommands:");
-    println!("  sync <name> <src>       Ensure a symlink exists at the appropriate location");
-    println!(
-        "                           Skills (default): ~/.reasonix/skills/<name> -> <src> (dir)"
-    );
-    println!("  build                    Assemble a self-contained tarball into dist/");
-    println!("                           --target reasonix: ~/.reasonix/skills/<name>");
-    println!("                           --target codex:   ~/.codex/skills/<name>");
-    println!("                           --shared:         ~/.agents/skills/<name>");
-    println!(
-        "                           --agent:          ~/.codex/agents/<name>.toml -> <src> (file)"
-    );
-    println!("                           Requires --target codex with --agent.");
+    println!("  dev <name> <src>        Local dev: symlink agent skills dir to source tree");
+    println!("                           --target reasonix|codex: agent-exclusive directory");
+    println!("                           --shared: ~/.agents/skills/ (default for agnostic)");
+    println!("                           --agent: ~/.codex/agents/<name>.toml (Codex only)");
+    println!("  pack                    Build a self-contained tarball into dist/");
+    println!("  release                 Pack + push to GitHub Releases (not yet implemented)");
     println!("  unlink <name>           Remove a toolkit-owned symlink from skills/agents dirs");
-    println!("                           Default (no --target): all skill directories");
     println!("                           --target reasonix|codex: only that target");
     println!("                           --shared: only ~/.agents/skills/");
     println!("                           --agent: ~/.codex/agents/<name>.toml");
@@ -289,7 +282,7 @@ fn get_version(project_root: &Path) -> Result<String, anyhow::Error> {
         .to_string())
 }
 
-fn build_command(project_root: &Path) -> Result<(), anyhow::Error> {
+fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let version = get_version(project_root)?;
     let dist_dir = project_root.join("dist");
     std::fs::create_dir_all(&dist_dir)
@@ -564,17 +557,21 @@ fn main() -> anyhow::Result<()> {
     };
 
     match subcommand.as_str() {
-        "build" => {
+        "pack" => {
             if target_flag.is_some() || shared_flag || agent_flag {
-                eprintln!("ERROR: build does not accept --target, --shared, or --agent flags");
+                eprintln!("ERROR: pack does not accept --target, --shared, or --agent flags");
                 usage();
             }
             if !positional.is_empty() {
                 warn(&format!("ignoring extra arguments: {:?}", positional));
             }
-            build_command(&project_root)?;
+            pack_command(&project_root)?;
         }
-        "sync" => {
+        "release" => {
+            eprintln!("release subcommand not yet implemented — use pack for now");
+            std::process::exit(1);
+        }
+        "dev" => {
             if positional.len() != 2 {
                 eprintln!(
                     "ERROR: sync requires exactly two arguments (<name> <src>), but received {}",

@@ -4,12 +4,12 @@
 //! tempfile = "3"
 //! ```
 //!
-//! Integration tests for install.rs CLI contract.
+//! Integration tests for deploy.rs CLI contract.
 //! Merges test_install.sh + test_install_rs.sh into a single Rust test suite
-//! (≥78 assertions). Exercises sync, unlink, link-principles, and parameter
+//! (≥78 assertions). Exercises dev, unlink, link-principles, and parameter
 //! validation via std::process::Command.
 //!
-//! Run: rust-script --test tests/test_install.rs
+//! Run: rust-script --test tests/test_deploy.rs
 
 use std::fs;
 use std::os::unix::fs::symlink;
@@ -17,44 +17,44 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() {
-    println!("Run with: rust-script --test tests/test_install.rs");
+    println!("Run with: rust-script --test tests/test_deploy.rs");
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-/// Find the actual project root — the directory containing install.rs.
+/// Find the actual project root — the directory containing deploy.rs.
 fn project_root() -> PathBuf {
-    // file!() gives "tests/test_install.rs" relative to project root
+    // file!() gives "tests/test_deploy.rs" relative to project root
     let src = Path::new(file!());
     if let (Some(_tests_dir), Some(proj)) = (src.parent(), src.parent().and_then(|p| p.parent())) {
         let candidate = proj.to_path_buf();
-        if candidate.join("install.rs").exists() {
+        if candidate.join("deploy.rs").exists() {
             return candidate;
         }
     }
     // Fallback: try env var
     if let Ok(root) = std::env::var("PROJECT_ROOT") {
         let p = PathBuf::from(&root);
-        if p.join("install.rs").exists() {
+        if p.join("deploy.rs").exists() {
             return p;
         }
     }
-    panic!("Cannot find project root (install.rs not found)");
+    panic!("Cannot find project root (deploy.rs not found)");
 }
 
-/// Path to the install.rs script under test.
+/// Path to the deploy.rs script under test.
 fn install_script() -> PathBuf {
-    project_root().join("install.rs")
+    project_root().join("deploy.rs")
 }
 
-/// Dual-runtime extension directories for install.rs.
+/// Dual-runtime extension directories for deploy.rs.
 struct DualDirs<'a> {
     reasonix_skills_dir: Option<&'a Path>,
     codex_skills_dir: Option<&'a Path>,
     codex_agents_dir: Option<&'a Path>,
 }
 
-/// Run install.rs with given args and environment variables.
+/// Run deploy.rs with given args and environment variables.
 /// Returns (stdout, stderr, exit_code).
 fn run_install(
     args: &[&str],
@@ -87,7 +87,7 @@ fn run_install_ext(
     dual: DualDirs,
 ) -> (String, String, i32) {
     let script = install_script();
-    assert!(script.exists(), "install.rs not found at {:?}", script);
+    assert!(script.exists(), "deploy.rs not found at {:?}", script);
 
     let mut cmd = Command::new("rust-script");
     cmd.arg(&script);
@@ -117,7 +117,7 @@ fn run_install_ext(
         cmd.env("CODEX_AGENTS_DIR", d);
     }
 
-    let output = cmd.output().expect("failed to run rust-script install.rs");
+    let output = cmd.output().expect("failed to run rust-script deploy.rs");
 
     let stdout = String::from_utf8_lossy(&output.stdout).to_string();
     let stderr = String::from_utf8_lossy(&output.stderr).to_string();
@@ -157,20 +157,20 @@ mod tests {
         let combined = format!("{}{}", out, err);
         assert!(
             combined.contains("Usage:") || combined.to_lowercase().contains("sync"),
-            "no-args should print usage mentioning sync, got: {}",
+            "no-args should print usage mentioning dev, got: {}",
             combined
         );
     }
 
     #[test]
-    fn sync_zero_args_exits_nonzero() {
+    fn dev_zero_args_exits_nonzero() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let home = tmp.path().join("home");
         fs::create_dir_all(&home).unwrap();
 
         let (out, err, code) = run_install(&["sync"], &home, None, None, None);
 
-        assert_ne!(code, 0, "sync with 0 args should exit non-zero");
+        assert_ne!(code, 0, "dev with 0 args should exit non-zero");
         let combined = format!("{}{}", out, err);
         assert!(
             combined.to_lowercase().contains("requires exactly two"),
@@ -180,14 +180,14 @@ mod tests {
     }
 
     #[test]
-    fn sync_one_arg_exits_nonzero() {
+    fn dev_one_arg_exits_nonzero() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let home = tmp.path().join("home");
         fs::create_dir_all(&home).unwrap();
 
-        let (out, err, code) = run_install(&["sync", "onlyname"], &home, None, None, None);
+        let (out, err, code) = run_install(&["dev", "onlyname"], &home, None, None, None);
 
-        assert_ne!(code, 0, "sync with 1 arg should exit non-zero");
+        assert_ne!(code, 0, "dev with 1 arg should exit non-zero");
         let combined = format!("{}{}", out, err);
         assert!(
             combined.to_lowercase().contains("requires exactly two"),
@@ -197,14 +197,14 @@ mod tests {
     }
 
     #[test]
-    fn sync_three_args_exits_nonzero() {
+    fn dev_three_args_exits_nonzero() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let home = tmp.path().join("home");
         fs::create_dir_all(&home).unwrap();
 
-        let (out, err, code) = run_install(&["sync", "a", "b", "c"], &home, None, None, None);
+        let (out, err, code) = run_install(&["dev", "a", "b", "c"], &home, None, None, None);
 
-        assert_ne!(code, 0, "sync with 3 args should exit non-zero");
+        assert_ne!(code, 0, "dev with 3 args should exit non-zero");
         let combined = format!("{}{}", out, err);
         assert!(
             combined.to_lowercase().contains("requires exactly two"),
@@ -236,7 +236,7 @@ mod tests {
     // ═══════════════════════════════════════════════════════════════════════
 
     #[test]
-    fn fresh_sync_creates_symlink() {
+    fn fresh_dev_creates_symlink() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let home = tmp.path().join("home");
         let skills = home.join(".agents/skills");
@@ -245,14 +245,14 @@ mod tests {
         fs::write(src.join("SKILL.md"), "# My Skill\n").unwrap();
 
         let (_out, _err, code) = run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&skills),
             None,
             None,
         );
 
-        assert_eq!(code, 0, "fresh sync should exit 0");
+        assert_eq!(code, 0, "fresh dev should exit 0");
         assert!(skills.is_dir(), "skills dir should be created");
         let link = skills.join("my-skill");
         assert!(link.is_symlink(), "symlink should exist");
@@ -279,7 +279,7 @@ mod tests {
 
         // First sync
         run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&skills),
             None,
@@ -288,7 +288,7 @@ mod tests {
 
         // Second sync (idempotent)
         let (_out, _err, code) = run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&skills),
             None,
@@ -321,7 +321,7 @@ mod tests {
 
         // Create initial symlink
         run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&skills),
             None,
@@ -340,7 +340,7 @@ mod tests {
 
         // Repair
         let (_out, _err, code) = run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&skills),
             None,
@@ -382,7 +382,7 @@ mod tests {
 
         // Now sync to the original src — should replace
         let (_out, _err, code) = run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&skills),
             None,
@@ -419,7 +419,7 @@ mod tests {
         fs::write(conflict_dir.join("important.txt"), "precious data\n").unwrap();
 
         let (out, err, code) = run_install(
-            &["sync", "conflict-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "conflict-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&skills),
             None,
@@ -573,7 +573,7 @@ mod tests {
         fs::create_dir_all(&skills).unwrap();
 
         // Create a symlink pointing to a location — we don't set PROJECT_ROOT,
-        // so the default PROJECT_ROOT will be the install.rs parent directory,
+        // so the default PROJECT_ROOT will be the deploy.rs parent directory,
         // which is definitely not under tmp.
         symlink(&external_target, skills.join("external-link")).unwrap();
 
@@ -1063,7 +1063,7 @@ mod tests {
 
         // No AGENTS_SKILLS_DIR override — use default ~/.agents/skills/
         let (_out, _err, code) = run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             None,
             None,
@@ -1091,7 +1091,7 @@ mod tests {
 
         // No --target, no --shared, no env overrides → default ~/.reasonix/skills/
         let (_out, _err, code) = run_install(
-            &["sync", "my-skill", &src.to_string_lossy()],
+            &["dev", "my-skill", &src.to_string_lossy()],
             &home,
             None,
             None,
@@ -1121,7 +1121,7 @@ mod tests {
         fs::write(src.join("SKILL.md"), "# My Skill\n").unwrap();
 
         let (_out, _err, code) = run_install(
-            &["sync", "my-skill", &src.to_string_lossy(), "--shared"],
+            &["dev", "my-skill", &src.to_string_lossy(), "--shared"],
             &home,
             Some(&custom_shared), // AGENTS_SKILLS_DIR overrides default
             None,
@@ -1479,7 +1479,7 @@ mod tests {
 
         // Default sync (no flags → reasonix) should replace wrong-target symlink
         let (_out, _err, code) = run_install_ext(
-            &["sync", "my-skill", &src.to_string_lossy()],
+            &["dev", "my-skill", &src.to_string_lossy()],
             &home,
             None,
             None,
@@ -1644,7 +1644,7 @@ mod tests {
         fs::write(&src, "[agent]\nname = \"test\"\n").unwrap();
 
         let (out, err, code) = run_install_ext(
-            &["sync", "my-agent", &src.to_string_lossy(), "--agent"],
+            &["dev", "my-agent", &src.to_string_lossy(), "--agent"],
             &home,
             None,
             None,
