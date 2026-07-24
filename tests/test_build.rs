@@ -115,6 +115,14 @@ mod tests {
         // Run build
         let (out, err, code) = run_build(&["pack"], Some(&root));
 
+        eprintln!("DEBUG pack exit code: {}", code);
+        eprintln!("DEBUG pack stdout: {}", out);
+        eprintln!("DEBUG pack stderr: {}", err);
+        eprintln!("DEBUG project_root: {:?}", root);
+        eprintln!("DEBUG deploy.rs exists: {}", root.join("deploy.rs").exists());
+        eprintln!("DEBUG templates/install.sh.in exists: {}", root.join("templates/install.sh.in").exists());
+        eprintln!("DEBUG .skill-lock.json exists: {}", root.join(".skill-lock.json").exists());
+
         assert_eq!(
             code, 0,
             "pack should exit 0, stderr: {}, stdout: {}",
@@ -143,8 +151,10 @@ mod tests {
             fs::remove_dir_all(&dist_dir).unwrap();
         }
 
-        let (_out, _err, code) = run_build(&["pack"], Some(&root));
-        assert_eq!(code, 0);
+        let (out, err, code) = run_build(&["pack"], Some(&root));
+        eprintln!("DEBUG2 pack exit code: {}", code);
+        eprintln!("DEBUG2 pack stderr: {}", err);
+        assert_eq!(code, 0, "pack should exit 0, stderr: {}, stdout: {}", err, out);
 
         let tarball_path = dist_dir.join("autopilot-toolkit.tar.gz");
         assert!(tarball_path.is_file());
@@ -367,8 +377,10 @@ mod tests {
             fs::remove_dir_all(&dist_dir).unwrap();
         }
 
-        let (_out, _err, code) = run_build(&["pack"], Some(&root));
-        assert_eq!(code, 0);
+        let (out, err, code) = run_build(&["pack"], Some(&root));
+        eprintln!("DEBUG2 pack exit code: {}", code);
+        eprintln!("DEBUG2 pack stderr: {}", err);
+        assert_eq!(code, 0, "pack should exit 0, stderr: {}, stdout: {}", err, out);
 
         assert!(dist_dir.is_dir(), "dist/ should be created");
     }
