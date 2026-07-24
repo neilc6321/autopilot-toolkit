@@ -68,7 +68,7 @@ fn run_build(args: &[&str], project_root_override: Option<&Path>) -> (String, St
 
 fn git_rev_parse(repo: &Path) -> String {
     let output = Command::new("git")
-        .args(&["-C", &repo.to_string_lossy(), "rev-parse", "HEAD"])
+        .args(["-C", &repo.to_string_lossy(), "rev-parse", "HEAD"])
         .output()
         .expect("git rev-parse failed");
     String::from_utf8_lossy(&output.stdout).trim().to_string()
@@ -155,7 +155,7 @@ mod tests {
         fs::create_dir_all(&extract_dir).unwrap();
 
         let status = Command::new("tar")
-            .args(&[
+            .args([
                 "-xzf",
                 &tarball_path.to_string_lossy(),
                 "-C",
@@ -412,7 +412,7 @@ mod tests {
             let mock_skills = mock_root.join("skills");
             // Use cp -r for recursive copy
             let status = Command::new("cp")
-                .args(&[
+                .args([
                     "-r",
                     &real_skills.to_string_lossy(),
                     &mock_skills.to_string_lossy(),
@@ -426,7 +426,7 @@ mod tests {
         let real_principles = project_root().join("principles");
         if real_principles.exists() {
             let status = Command::new("cp")
-                .args(&[
+                .args([
                     "-r",
                     &real_principles.to_string_lossy(),
                     &mock_root.join("principles").to_string_lossy(),
