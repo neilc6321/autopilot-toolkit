@@ -20,7 +20,7 @@ fn warn(msg: &str) {
 
 fn usage() -> ! {
     println!(
-        "Usage: deploy.rs <subcommand> [args...] [--target reasonix|codex] [--shared] [--agent] (for pack only)"
+        "Usage: deploy.rs <subcommand> [args...]"
     );
     println!();
     println!("Subcommands:");
@@ -32,41 +32,6 @@ fn usage() -> ! {
     std::process::exit(1);
 }
 
-/// Parse flags (--target, --shared, --agent) from the positional args tail.
-/// Returns (positional_args, target_value, shared_flag, agent_flag).
-fn parse_flags(args: &[String]) -> (Vec<&str>, Option<String>, bool, bool) {
-    let mut positional: Vec<&str> = Vec::new();
-    let mut target: Option<String> = None;
-    let mut shared = false;
-    let mut agent = false;
-
-    let mut i = 0;
-    while i < args.len() {
-        match args[i].as_str() {
-            "--target" => {
-                i += 1;
-                if i < args.len() {
-                    target = Some(args[i].clone());
-                } else {
-                    eprintln!("ERROR: --target requires a value (reasonix or codex)");
-                    usage();
-                }
-            }
-            "--shared" => {
-                shared = true;
-            }
-            "--agent" => {
-                agent = true;
-            }
-            other => {
-                positional.push(other);
-            }
-        }
-        i += 1;
-    }
-
-    (positional, target, shared, agent)
-}
 
 fn sync_skill(name: &str, src: &Path, skills_dir: &Path) -> Result<(), anyhow::Error> {
     let target = skills_dir.join(name);
@@ -717,14 +682,10 @@ fn main() -> anyhow::Result<()> {
     let rest = &args[2..];
 
     // Parse flags from the positional tail
-    let (positional, target_flag, shared_flag, agent_flag) = parse_flags(rest);
+    let positional: Vec<&str> = rest.iter().map(|s| s.as_str()).collect();
 
     match subcommand.as_str() {
         "pack" => {
-            if target_flag.is_some() || shared_flag || agent_flag {
-                eprintln!("ERROR: pack does not accept --target, --shared, or --agent flags");
-                usage();
-            }
             if !positional.is_empty() {
                 warn(&format!("ignoring extra arguments: {:?}", positional));
             }
