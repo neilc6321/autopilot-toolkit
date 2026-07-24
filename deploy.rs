@@ -1,9 +1,14 @@
 #!/usr/bin/env rust-script
 //! ```cargo
 //! [dependencies]
+//! serde = { version = "1", features = ["derive"] }
+//! serde_json = "1"
 //! anyhow = "1"
 //! ```
 
+use serde::Serialize;
+use std::collections::BTreeMap;
+use std::process::Command;
 use anyhow::Context;
 use std::env;
 use std::os::unix::fs::symlink;
@@ -23,6 +28,7 @@ fn usage() -> ! {
     println!(
         "                           Skills (default): ~/.reasonix/skills/<name> -> <src> (dir)"
     );
+    println!("  build                    Assemble a self-contained tarball into dist/");
     println!("                           --target reasonix: ~/.reasonix/skills/<name>");
     println!("                           --target codex:   ~/.codex/skills/<name>");
     println!("                           --shared:         ~/.agents/skills/<name>");
@@ -251,6 +257,232 @@ fn sync_agent(name: &str, src: &Path, codex_agents_dir: &Path) -> Result<(), any
     Ok(())
 }
 
+// ── Build ────────────────────────────────────────────────────────────────
+
+#[derive(Serialize)]
+struct ManifestSkill {
+    #[serde(rename = "type")]
+    skill_type: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    variants: Vec<String>,
+    #[serde(default)]
+    codex_agent: bool,
+}
+
+#[derive(Serialize)]
+struct Manifest {
+    version: String,
+    skills: BTreeMap<String, ManifestSkill>,
+}
+
+fn get_version(project_root: &Path) -> Result<String, anyhow::Error> {
+    let output = Command::new("git")
+        .args(&["-C", &project_root.to_string_lossy(), "rev-parse", "HEAD"])
+        .output()
+        .context("git rev-parse HEAD failed — are you in a git repository?")?;
+    if !output.status.success() {
+        anyhow::bail!("git rev-parse HEAD exited with error");
+    }
+    Ok(String::from_utf8(output.stdout)
+        .context("git output not valid UTF-8")?
+        .trim()
+        .to_string())
+}
+
+fn build_command(project_root: &Path) -> Result<(), anyhow::Error> {
+    let version = get_version(project_root)?;
+    let dist_dir = project_root.join("dist");
+    std::fs::create_dir_all(&dist_dir)
+        .with_context(|| format!("cannot create dist directory {}", dist_dir.display()))?;
+
+    // Create staging directory for tarball contents
+    let staging = dist_dir.join("staging");
+    if staging.exists() {
+        std::fs::remove_dir_all(&staging)?;
+    }
+    std::fs::create_dir_all(&staging)?;
+
+    let skills_staging = staging.join("skills");
+    std::fs::create_dir_all(&skills_staging)?;
+
+    let autopilot_staging = staging.join(".autopilot");
+    std::fs::create_dir_all(&autopilot_staging)?;
+
+    let mut manifest = Manifest {
+        version: version.clone(),
+        skills: BTreeMap::new(),
+    };
+
+    // ── scan autopilot skills ──
+    let autopilot_dir = project_root.join("skills").join("autopilot");
+    if autopilot_dir.is_dir() {
+        for entry in std::fs::read_dir(&autopilot_dir)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            let skill_name = entry.file_name();
+            let skill_name_str = skill_name.to_string_lossy().to_string();
+            let src_dir = entry.path();
+
+            // Determine type: agnostic (just SKILL.md) vs coupled (variant subdirs)
+            let has_variants = has_variant_dirs(&src_dir);
+
+            if has_variants {
+                let variants = list_variants(&src_dir);
+                let codex_agent = src_dir.join("codex").join("agent.toml").is_file();
+                manifest.skills.insert(skill_name_str.clone(), ManifestSkill {
+                    skill_type: "coupled".to_string(),
+                    variants,
+                    codex_agent,
+                });
+            } else {
+                manifest.skills.insert(skill_name_str.clone(), ManifestSkill {
+                    skill_type: "agnostic".to_string(),
+                    variants: vec![],
+                    codex_agent: false,
+                });
+            }
+
+            // Copy skill directory into staging
+            copy_dir_all(&src_dir, &skills_staging.join(&skill_name_str))?;
+        }
+    }
+
+    // ── scan upstream skills from .skill-lock.json ──
+    let lock_path = project_root.join(".skill-lock.json");
+    if lock_path.is_file() {
+        let lock_bytes = std::fs::read_to_string(&lock_path)?;
+        let lock: serde_json::Value = serde_json::from_str(&lock_bytes)
+            .context("failed to parse .skill-lock.json")?;
+
+        if let Some(skills_map) = lock.get("skills").and_then(|s| s.as_object()) {
+            for (skill_name, skill_entry) in skills_map {
+                // Extract skillPath to locate the source directory
+                if let Some(skill_path) = skill_entry.get("skillPath").and_then(|s| s.as_str()) {
+                    // skillPath is like "skills/engineering/diagnosing-bugs/SKILL.md"
+                    // The source dir is the parent of SKILL.md, relative to skills/upstream/
+                    let src_parent = Path::new(skill_path).parent().unwrap_or(Path::new(""));
+                    let src_dir = project_root.join("skills").join("upstream").join(src_parent);
+
+                    if src_dir.is_dir() {
+                        // Copy upstream skill dir (flat name) into staging
+                        copy_dir_all(&src_dir, &skills_staging.join(skill_name))?;
+                        manifest.skills.insert(skill_name.clone(), ManifestSkill {
+                            skill_type: "upstream".to_string(),
+                            variants: vec![],
+                            codex_agent: false,
+                        });
+                    } else {
+                        eprintln!("WARNING: upstream skill '{}' source dir missing ({}), skipping", skill_name, src_dir.display());
+                    }
+                }
+            }
+        }
+    }
+
+    // ── write manifest.json ──
+    let manifest_json = serde_json::to_string_pretty(&manifest)?;
+    std::fs::write(autopilot_staging.join("manifest.json"), &manifest_json)?;
+
+    // ── write .version ──
+    std::fs::write(autopilot_staging.join(".version"), &version)?;
+
+    // ── copy .skill-lock.json ──
+    if lock_path.is_file() {
+        std::fs::copy(&lock_path, autopilot_staging.join(".skill-lock.json"))?;
+    }
+
+    // ── generate install.sh from template ──
+    let template_path = project_root.join("templates").join("install.sh.in");
+    let template_content = std::fs::read_to_string(&template_path)
+        .with_context(|| format!("template not found at {}", template_path.display()))?;
+    let install_content = template_content.replace("__VERSION__", &version);
+    let install_dest = autopilot_staging.join("install.sh");
+    std::fs::write(&install_dest, &install_content)?;
+    // Make executable
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&install_dest)?.permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&install_dest, perms)?;
+    }
+
+    // ── copy bootstrap.sh ──
+    let bootstrap_src = project_root.join("bootstrap.sh");
+    if bootstrap_src.is_file() {
+        std::fs::copy(&bootstrap_src, autopilot_staging.join("bootstrap.sh"))?;
+        // Ensure executable
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(autopilot_staging.join("bootstrap.sh"))?.permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(autopilot_staging.join("bootstrap.sh"), perms)?;
+        }
+    }
+
+    // ── copy principles/ ──
+    let principles_src = project_root.join("principles");
+    if principles_src.is_dir() {
+        copy_dir_all(&principles_src, &staging.join("principles"))?;
+    }
+
+    // ── create tarball ──
+    let tarball_name = format!("autopilot-toolkit-{}.tar.gz", version);
+    let tarball_path = dist_dir.join(&tarball_name);
+
+    let status = Command::new("tar")
+        .args(&["-czf", &tarball_path.to_string_lossy(), "-C", &staging.to_string_lossy(), "."])
+        .status()
+        .context("tar command failed — is tar installed?")?;
+
+    if !status.success() {
+        anyhow::bail!("tar exited with error");
+    }
+
+    // Clean up staging
+    std::fs::remove_dir_all(&staging)?;
+
+    println!("Built: {}", tarball_path.display());
+    Ok(())
+}
+
+fn has_variant_dirs(dir: &Path) -> bool {
+    for variant in &["codex", "kimi", "reasonix"] {
+        if dir.join(variant).is_dir() {
+            return true;
+        }
+    }
+    false
+}
+
+fn list_variants(dir: &Path) -> Vec<String> {
+    let mut variants = Vec::new();
+    for variant in &["codex", "kimi", "reasonix"] {
+        if dir.join(variant).is_dir() {
+            variants.push(variant.to_string());
+        }
+    }
+    variants
+}
+
+fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), anyhow::Error> {
+    std::fs::create_dir_all(dst)?;
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let ty = entry.file_type()?;
+        let dest = dst.join(entry.file_name());
+        if ty.is_dir() {
+            copy_dir_all(&entry.path(), &dest)?;
+        } else {
+            std::fs::copy(entry.path(), &dest)?;
+        }
+    }
+    Ok(())
+}
+
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
 
@@ -332,6 +564,16 @@ fn main() -> anyhow::Result<()> {
     };
 
     match subcommand.as_str() {
+        "build" => {
+            if target_flag.is_some() || shared_flag || agent_flag {
+                eprintln!("ERROR: build does not accept --target, --shared, or --agent flags");
+                usage();
+            }
+            if !positional.is_empty() {
+                warn(&format!("ignoring extra arguments: {:?}", positional));
+            }
+            build_command(&project_root)?;
+        }
         "sync" => {
             if positional.len() != 2 {
                 eprintln!(
@@ -401,7 +643,7 @@ fn main() -> anyhow::Result<()> {
         }
         _ => {
             eprintln!(
-                "ERROR: unknown subcommand '{}'. Available: sync, unlink, link-principles",
+                "ERROR: unknown subcommand '{}'. Available: build, sync, unlink, link-principles",
                 subcommand
             );
             usage();
