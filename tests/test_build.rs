@@ -97,17 +97,17 @@ mod tests {
     use super::*;
 
     #[test]
-fn all_tests() {
-    eprintln!("Running tests sequentially...");
-    __build_produces_tarball();
-    __build_tarball_structure_and_metadata();
-    __build_creates_dist_dir_if_missing();
-    __build_exits_nonzero_when_not_in_git_repo();
-    __sync_still_works_after_build_changes();
-    eprintln!("All tests passed!");
-}
+    fn all_tests() {
+        eprintln!("Running tests sequentially...");
+        __build_produces_tarball();
+        __build_tarball_structure_and_metadata();
+        __build_creates_dist_dir_if_missing();
+        __build_exits_nonzero_when_not_in_git_repo();
+        __sync_still_works_after_build_changes();
+        eprintln!("All tests passed!");
+    }
 
-fn __build_produces_tarball() {
+    fn __build_produces_tarball() {
         let root = project_root();
         let dist_dir = root.join("dist");
 
@@ -129,9 +129,18 @@ fn __build_produces_tarball() {
         eprintln!("DEBUG pack stdout: {}", out);
         eprintln!("DEBUG pack stderr: {}", err);
         eprintln!("DEBUG project_root: {:?}", root);
-        eprintln!("DEBUG deploy.rs exists: {}", root.join("deploy.rs").exists());
-        eprintln!("DEBUG templates/install.sh.in exists: {}", root.join("templates/install.sh.in").exists());
-        eprintln!("DEBUG .skill-lock.json exists: {}", root.join(".skill-lock.json").exists());
+        eprintln!(
+            "DEBUG deploy.rs exists: {}",
+            root.join("deploy.rs").exists()
+        );
+        eprintln!(
+            "DEBUG templates/install.sh.in exists: {}",
+            root.join("templates/install.sh.in").exists()
+        );
+        eprintln!(
+            "DEBUG .skill-lock.json exists: {}",
+            root.join(".skill-lock.json").exists()
+        );
 
         assert_eq!(
             code, 0,
@@ -163,7 +172,11 @@ fn __build_produces_tarball() {
         let (out, err, code) = run_build(&["pack"], Some(&root));
         eprintln!("DEBUG2 pack exit code: {}", code);
         eprintln!("DEBUG2 pack stderr: {}", err);
-        assert_eq!(code, 0, "pack should exit 0, stderr: {}, stdout: {}", err, out);
+        assert_eq!(
+            code, 0,
+            "pack should exit 0, stderr: {}, stdout: {}",
+            err, out
+        );
 
         let tarball_path = dist_dir.join("autopilot-toolkit.tar.gz");
         assert!(tarball_path.is_file());
@@ -388,7 +401,11 @@ fn __build_produces_tarball() {
         let (out, err, code) = run_build(&["pack"], Some(&root));
         eprintln!("DEBUG2 pack exit code: {}", code);
         eprintln!("DEBUG2 pack stderr: {}", err);
-        assert_eq!(code, 0, "pack should exit 0, stderr: {}, stdout: {}", err, out);
+        assert_eq!(
+            code, 0,
+            "pack should exit 0, stderr: {}, stdout: {}",
+            err, out
+        );
 
         assert!(dist_dir.is_dir(), "dist/ should be created");
     }
