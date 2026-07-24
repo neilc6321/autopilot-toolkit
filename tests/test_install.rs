@@ -137,6 +137,14 @@ fn setup_mock_project(root: &Path) {
         .current_dir(root)
         .output();
     let _ = Command::new("git")
+        .args(["config", "user.email", "test@test.com"])
+        .current_dir(root)
+        .output();
+    let _ = Command::new("git")
+        .args(["config", "user.name", "Test"])
+        .current_dir(root)
+        .output();
+    let _ = Command::new("git")
         .args(["add", "-A"])
         .current_dir(root)
         .output();
