@@ -34,7 +34,7 @@ jobs:
 
 
   test-shell:
-    name: test (shell)
+    name: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -74,7 +74,7 @@ jobs:
         run: cargo clippy --manifest-path crates/validation/Cargo.toml --all-targets -- -D warnings
 
   clippy-scripts:
-    name: clippy (scripts)
+    name: clippy-scripts
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
