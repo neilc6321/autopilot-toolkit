@@ -355,7 +355,8 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let repo_url = get_repo_slug(project_root)?;
     let install_content = template_content
         .replace("__VERSION__", &version)
-        .replace("__REPO_URL__", &format!("https://github.com/{}", repo_url));
+        .replace("__REPO_URL__", &format!("https://github.com/{}", repo_url))
+        .replace("__TAG__", &format!("v-{}", &version[..8.min(version.len())]));
 
     // ── copy bootstrap.sh ──
     let bootstrap_src = project_root.join("bootstrap.sh");
