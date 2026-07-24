@@ -620,61 +620,54 @@ fn dev_clean(
 
 fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     // Check gh is available
-    let gh_check = Command::new("which").arg("gh").output();
-    if gh_check.is_err() || !gh_check.unwrap().status.success() {
+    if !Command::new("which").arg("gh").output().map(|o| o.status.success()).unwrap_or(false) {
         anyhow::bail!("gh CLI not found — install it from https://cli.github.com");
     }
 
-    // Must be on a tag
-    let tag = String::from_utf8(
-        Command::new("git")
-            .args(&["describe", "--tags", "--exact-match"])
-            .current_dir(project_root)
-            .output()
-            .context("git describe failed")?
-            .stdout,
-    )
-    .context("invalid UTF-8 from git describe")?
-    .trim()
-    .to_string();
+    // Use short hash as tag — no manual tagging needed
+    let hash = String::from_utf8(
+        Command::new("git").args(&["rev-parse", "HEAD"])
+            .current_dir(project_root).output()?.stdout,
+    )?.trim().to_string();
+    let short = &hash[..8.min(hash.len())];
+    let tag = format!("v-{}", short);
+    let repo_slug = get_repo_slug(project_root)?;
 
-    if tag.is_empty() {
-        anyhow::bail!("not on a git tag — create and push a tag first, e.g.: git tag v1.0.0 && git push origin v1.0.0");
+    // Skip if release already exists
+    if Command::new("gh").args(&["release", "view", &tag])
+        .current_dir(project_root).status().is_ok()
+    {
+        println!("==> Release {} already exists, skipping.", tag);
+        return Ok(());
     }
 
-    let repo_slug = get_repo_slug(project_root)?;
     println!("==> Releasing {} to {}", tag, repo_slug);
-
-    // Build the tarball
     pack_command(project_root)?;
 
-    let dist_dir = project_root.join("dist");
-    let tarball = dist_dir.join(format!("autopilot-toolkit-{}.tar.gz", tag));
-    let install_script = dist_dir.join("install.sh");
-
+    let tarball = project_root.join("dist").join(format!("autopilot-toolkit-{}.tar.gz", hash));
+    let install_script = project_root.join("dist").join("install.sh");
     if !tarball.is_file() {
         anyhow::bail!("tarball not found at {}", tarball.display());
     }
 
-    // Create GitHub Release and upload assets
-    let status = Command::new("gh")
-        .args(&[
-            "release", "create", &tag,
-            tarball.to_str().unwrap(),
-            install_script.to_str().unwrap(),
-            "--title", &format!("autopilot-toolkit {}", tag),
-            "--notes", &format!("autopilot-toolkit {} release.", tag),
-        ])
-        .current_dir(project_root)
-        .status()
-        .context("gh release create failed")?;
-
-    if !status.success() {
-        anyhow::bail!("gh release create exited with error");
+    // Create and push lightweight tag
+    for args in &[vec!["tag", "-f", &tag], vec!["push", "origin", &tag]] {
+        let s = Command::new("git").args(args).current_dir(project_root).status()?;
+        if !s.success() { anyhow::bail!("git {:?} failed", args); }
     }
 
-    println!("==> Released {} to GitHub", tag);
-    println!("   Install: curl -sSL https://github.com/{}/releases/download/{}/install.sh | bash", repo_slug, tag);
+    // Create GitHub Release
+    let status = Command::new("gh")
+        .args(&["release", "create", &tag,
+            tarball.to_str().unwrap(), install_script.to_str().unwrap(),
+            "--title", &format!("autopilot-toolkit {}", short),
+            "--notes", &format!("Commit: {}\n\nInstall:\n```\ncurl -sSL https://github.com/{}/releases/download/{}/install.sh | bash\n```", short, repo_slug, tag),
+        ])
+        .current_dir(project_root).status()?;
+    if !status.success() { anyhow::bail!("gh release create failed"); }
+
+    println!("==> Released {}", tag);
+    println!("   curl -sSL https://github.com/{}/releases/download/{}/install.sh | bash", repo_slug, tag);
     Ok(())
 }
 
