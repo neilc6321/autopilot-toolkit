@@ -217,17 +217,25 @@ fn get_version(project_root: &Path) -> Result<String, anyhow::Error> {
 }
 
 fn get_repo_slug(project_root: &Path) -> Result<String, anyhow::Error> {
-    let remote_url = String::from_utf8(
-        Command::new("git")
-            .args(["remote", "get-url", "origin"])
-            .current_dir(project_root)
-            .output()
-            .context("git remote get-url failed")?
-            .stdout,
-    )
-    .context("invalid UTF-8")?
-    .trim()
-    .to_string();
+    let output = Command::new("git")
+        .args(["remote", "get-url", "origin"])
+        .current_dir(project_root)
+        .output()
+        .context("git remote get-url failed")?;
+
+    if !output.status.success() {
+        // No origin remote — return a placeholder
+        return Ok("unknown/autopilot-toolkit".to_string());
+    }
+
+    let remote_url = String::from_utf8(output.stdout)
+        .context("invalid UTF-8")?
+        .trim()
+        .to_string();
+
+    if remote_url.is_empty() {
+        return Ok("unknown/autopilot-toolkit".to_string());
+    }
 
     if let Some(cap) = remote_url.strip_prefix("https://github.com/") {
         Ok(cap.trim_end_matches(".git").to_string())
