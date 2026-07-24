@@ -2,7 +2,6 @@
 set -euo pipefail
 
 VERSION="__VERSION__"
-TAG="__TAG__"
 
 # Env var overrides for testability
 SKILLS_DIR="${AGENTS_SKILLS_DIR:-${HOME}/.agents/skills}"
@@ -68,14 +67,14 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-RELEASE_URL="__REPO_URL__/releases/download/${TAG}/autopilot-toolkit-${VERSION}.tar.gz"
+RELEASE_URL="__REPO_URL__/releases/latest/download/autopilot-toolkit.tar.gz"
 
 # ── check if already installed ───────────────────────────────────────────
 
 if [[ -f "${VERSION_FILE}" ]]; then
     INSTALLED_VERSION="$(cat "${VERSION_FILE}")"
     if [[ "${INSTALLED_VERSION}" == "${REQUESTED_VERSION}" ]]; then
-        echo "autopilot-toolkit ${TAG} is already installed."
+        echo "autopilot-toolkit ${VERSION:0:8} is already installed."
         echo "Re-verifying bootstrap symlinks..."
         if [[ -x "${BOOTSTRAP_SCRIPT}" ]]; then
             detect_and_bootstrap
@@ -83,7 +82,7 @@ if [[ -f "${VERSION_FILE}" ]]; then
         echo "Done."
         exit 0
     fi
-    echo "Upgrading from ${INSTALLED_VERSION} to ${TAG}..."
+    echo "Upgrading from ${INSTALLED_VERSION:0:8} to ${VERSION:0:8}..."
 fi
 
 # ── download tarball ─────────────────────────────────────────────────────
@@ -99,7 +98,7 @@ if [[ -n "${LOCAL_TARBALL}" ]]; then
     TARBALL_PATH="${LOCAL_TARBALL}"
 else
     TARBALL_TMP="$(mktemp "/tmp/autopilot-toolkit-XXXXXX.tar.gz")"
-    echo "Downloading autopilot-toolkit ${TAG}..."
+    echo "Downloading autopilot-toolkit..."
     if command -v curl &>/dev/null; then
         curl -fsSL "${RELEASE_URL}" -o "${TARBALL_TMP}"
     elif command -v wget &>/dev/null; then

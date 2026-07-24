@@ -37,7 +37,7 @@ for name in data.get('skills', {}):
 
     while IFS= read -r name; do
         [[ -z "${name}" ]] && continue
-        local dir="${SKILLS_DIR}/${name}"
+        dir="${SKILLS_DIR}/${name}"
         if [[ -d "${dir}" ]]; then
             rm -rf "${dir}"
             REMOVED=$((REMOVED + 1))
@@ -57,7 +57,7 @@ cleanup_symlinks() {
     [[ -d "${dir}" ]] || return
     for entry in "${dir}"/*; do
         if [[ -L "${entry}" ]]; then
-            local target
+            target
             target="$(readlink "${entry}" 2>/dev/null || true)"
             if [[ "${target}" == "${SKILLS_DIR}"/* ]]; then
                 rm -f "${entry}"
@@ -75,7 +75,7 @@ if [[ -d "${CODEX_AGENTS}" ]]; then
     for entry in "${CODEX_AGENTS}"/*.toml; do
         [[ -f "${entry}" ]] || continue
         if [[ -L "${entry}" ]]; then
-            local target
+            target
             target="$(readlink "${entry}" 2>/dev/null || true)"
             if [[ "${target}" == "${SKILLS_DIR}"/* ]]; then
                 rm -f "${entry}"

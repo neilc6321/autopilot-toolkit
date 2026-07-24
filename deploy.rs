@@ -355,8 +355,7 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let repo_url = get_repo_slug(project_root)?;
     let install_content = template_content
         .replace("__VERSION__", &version)
-        .replace("__REPO_URL__", &format!("https://github.com/{}", repo_url))
-        .replace("__TAG__", &format!("v-{}", &version[..8.min(version.len())]));
+        .replace("__REPO_URL__", &format!("https://github.com/{}", repo_url));
 
     // ── copy bootstrap.sh ──
     let bootstrap_src = project_root.join("bootstrap.sh");
@@ -391,7 +390,7 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     }
 
     // ── create tarball ──
-    let tarball_name = format!("autopilot-toolkit-{}.tar.gz", version);
+    let tarball_name = "autopilot-toolkit.tar.gz".to_string();
     let tarball_path = dist_dir.join(&tarball_name);
 
     let status = Command::new("tar")
@@ -647,7 +646,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     if !status.success() { anyhow::bail!("gh release create failed"); }
 
     println!("==> Released {}", tag);
-    println!("   curl -sSL https://github.com/{}/releases/download/{}/install.sh | bash", repo_slug, tag);
+    println!("   curl -sSL https://github.com/{}/releases/latest/download/install.sh | bash", repo_slug);
     Ok(())
 }
 
