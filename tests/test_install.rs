@@ -651,8 +651,13 @@ mod tests {
         fs::create_dir_all(&real_dir).unwrap();
         fs::write(real_dir.join("data.txt"), "keep me\n").unwrap();
 
-        let (_out, _err, code) =
-            run_install(&["dev-clean", "my-real-dir"], &home, Some(&skills), None, None);
+        let (_out, _err, code) = run_install(
+            &["dev-clean", "my-real-dir"],
+            &home,
+            Some(&skills),
+            None,
+            None,
+        );
 
         assert_eq!(code, 0, "unlink real directory should exit 0");
         assert!(real_dir.is_dir(), "real directory should be preserved");
