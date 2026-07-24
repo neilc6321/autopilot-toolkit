@@ -97,7 +97,17 @@ mod tests {
     use super::*;
 
     #[test]
-    fn build_produces_tarball() {
+fn all_tests() {
+    eprintln!("Running tests sequentially...");
+    __build_produces_tarball();
+    __build_tarball_structure_and_metadata();
+    __build_creates_dist_dir_if_missing();
+    __build_exits_nonzero_when_not_in_git_repo();
+    __sync_still_works_after_build_changes();
+    eprintln!("All tests passed!");
+}
+
+fn __build_produces_tarball() {
         let root = project_root();
         let dist_dir = root.join("dist");
 
@@ -139,8 +149,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn build_tarball_structure_and_metadata() {
+    fn __build_tarball_structure_and_metadata() {
         let _ = std::fs::remove_dir_all(project_root().join("dist"));
         let root = project_root();
         let git_hash = git_rev_parse(&root);
@@ -367,8 +376,7 @@ mod tests {
         }
     }
 
-    #[test]
-    fn build_creates_dist_dir_if_missing() {
+    fn __build_creates_dist_dir_if_missing() {
         let _ = std::fs::remove_dir_all(project_root().join("dist"));
         let root = project_root();
         let dist_dir = root.join("dist");
@@ -385,8 +393,7 @@ mod tests {
         assert!(dist_dir.is_dir(), "dist/ should be created");
     }
 
-    #[test]
-    fn build_exits_nonzero_when_not_in_git_repo() {
+    fn __build_exits_nonzero_when_not_in_git_repo() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let mock_root = tmp.path().join("mock-project");
         fs::create_dir_all(&mock_root).unwrap();
@@ -467,8 +474,7 @@ mod tests {
         );
     }
 
-    #[test]
-    fn sync_still_works_after_build_changes() {
+    fn __sync_still_works_after_build_changes() {
         // AC 8: deploy.rs dev still works (dev flow unchanged)
         let tmp = tempfile::tempdir().expect("tempdir");
         let home = tmp.path().join("home");

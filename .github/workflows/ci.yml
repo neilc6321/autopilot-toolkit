@@ -30,7 +30,7 @@ jobs:
       - name: Run build tests
         run: |
           rm -rf dist/
-          RUST_TEST_THREADS=1 rust-script --test tests/test_build.rs
+          rust-script --test tests/test_build.rs
       - name: Run toolkit-setup tests
         run: rust-script --test tests/test_toolkit_setup.rs
       - name: Run deployment contract tests
