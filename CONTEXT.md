@@ -63,7 +63,7 @@ _Avoid_: agent config, worker definition
 _Avoid_: skill list, inventory, lockfile
 
 **Tarball install**:
-The distribution model: a single `.tar.gz` published to GitHub Releases, containing `skills/`, `.autopilot/` (install.sh, bootstrap.sh, manifest.json, .version, .skill-lock.json), and `principles/`. Installed via `curl -sSL <url>/install.sh | bash`. Version is the git commit hash, embedded in install.sh and recorded in `.version`. Same version → skip download and re-run bootstrap. New version → remove manifest-listed directories, extract tarball, bootstrap all detected runtimes.
+The distribution model: a single `.tar.gz` published to GitHub Releases, containing `skills/`, `.autopilot/` (bootstrap.sh, manifest.json, .version, .skill-lock.json), and `principles/`. Installed via `curl -sSL <url>/install.sh | bash`. Version is the git commit hash, embedded in install.sh and recorded in `.version`. Same version → skip download and re-run bootstrap. New version → remove manifest-listed directories, extract tarball, bootstrap all detected runtimes.
 _Avoid_: package install, release install
 
 **Operational sync** (dev-only):

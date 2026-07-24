@@ -359,21 +359,11 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
         std::fs::copy(&lock_path, autopilot_staging.join(".skill-lock.json"))?;
     }
 
-    // ── generate install.sh from template ──
+    // ── generate install.sh from template (for dist/install.sh) ──
     let template_path = project_root.join("templates").join("install.sh.in");
     let template_content = std::fs::read_to_string(&template_path)
         .with_context(|| format!("template not found at {}", template_path.display()))?;
     let install_content = template_content.replace("__VERSION__", &version);
-    let install_dest = autopilot_staging.join("install.sh");
-    std::fs::write(&install_dest, &install_content)?;
-    // Make executable
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut perms = std::fs::metadata(&install_dest)?.permissions();
-        perms.set_mode(0o755);
-        std::fs::set_permissions(&install_dest, perms)?;
-    }
 
     // ── copy bootstrap.sh ──
     let bootstrap_src = project_root.join("bootstrap.sh");

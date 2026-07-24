@@ -113,9 +113,9 @@ mod tests {
         let tarball_path = dist_dir.join(&tarball_name);
 
         // Run build
-        let (out, err, code) = run_build(&["build"], Some(&root));
+        let (out, err, code) = run_build(&["pack"], Some(&root));
 
-        assert_eq!(code, 0, "build should exit 0, stderr: {}, stdout: {}", err, out);
+        assert_eq!(code, 0, "pack should exit 0, stderr: {}, stdout: {}", err, out);
 
         // AC 1: tarball exists
         assert!(tarball_path.is_file(), "tarball not found at {:?}, stdout: {}, stderr: {}", tarball_path, out, err);
@@ -132,7 +132,7 @@ mod tests {
             fs::remove_dir_all(&dist_dir).unwrap();
         }
 
-        let (_out, _err, code) = run_build(&["build"], Some(&root));
+        let (_out, _err, code) = run_build(&["pack"], Some(&root));
         assert_eq!(code, 0);
 
         let tarball_path = dist_dir.join(format!("autopilot-toolkit-{}.tar.gz", git_hash));
@@ -149,19 +149,19 @@ mod tests {
             .expect("tar extract failed");
         assert!(status.success(), "tar extract should succeed");
 
-        // ── AC 3: .autopilot/ contains install.sh, bootstrap.sh, manifest.json, .version, .skill-lock.json ──
+        // ── AC 3: .autopilot/ contains bootstrap.sh, manifest.json, .version, .skill-lock.json ──
 
         let autopilot_dir = extract_dir.join(".autopilot");
         assert!(autopilot_dir.is_dir(), ".autopilot/ should exist");
 
-        assert!(autopilot_dir.join("install.sh").is_file(), ".autopilot/install.sh should exist");
         assert!(autopilot_dir.join("bootstrap.sh").is_file(), ".autopilot/bootstrap.sh should exist");
         assert!(autopilot_dir.join("manifest.json").is_file(), ".autopilot/manifest.json should exist");
         assert!(autopilot_dir.join(".version").is_file(), ".autopilot/.version should exist");
         assert!(autopilot_dir.join(".skill-lock.json").is_file(), ".autopilot/.skill-lock.json should exist");
 
-        // ── AC 7: install.sh is executable and embeds correct version ──
-        let install_sh = autopilot_dir.join("install.sh");
+        // ── AC 7: dist/install.sh is executable and embeds correct version ──
+        let install_sh = project_root().join("dist").join("install.sh");
+        assert!(install_sh.is_file(), "dist/install.sh should exist");
         let metadata = fs::metadata(&install_sh).unwrap();
         // Check executable bit (on Unix)
         use std::os::unix::fs::PermissionsExt;
@@ -265,7 +265,7 @@ mod tests {
             fs::remove_dir_all(&dist_dir).unwrap();
         }
 
-        let (_out, _err, code) = run_build(&["build"], Some(&root));
+        let (_out, _err, code) = run_build(&["pack"], Some(&root));
         assert_eq!(code, 0);
 
         assert!(dist_dir.is_dir(), "dist/ should be created");
@@ -330,7 +330,7 @@ mod tests {
 
         let mut cmd = Command::new("rust-script");
         cmd.arg(&mock_install);
-        cmd.arg("build");
+        cmd.arg("pack");
         cmd.env("PROJECT_ROOT", &mock_root);
 
         let output = cmd.output().expect("failed to run");
@@ -359,10 +359,7 @@ mod tests {
 
         let mut cmd = Command::new("rust-script");
         cmd.arg(&script);
-        cmd.arg("sync");
-        cmd.arg("my-skill");
-        cmd.arg(src.to_string_lossy().as_ref());
-        cmd.arg("--shared");
+        cmd.arg("dev");
         cmd.env("HOME", &home);
         cmd.env("AGENTS_SKILLS_DIR", &skills);
 
@@ -370,8 +367,9 @@ mod tests {
         let code = output.status.code().unwrap_or(-1);
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        assert_eq!(code, 0, "sync should still exit 0 after build changes, stderr: {}", stderr);
-        assert!(skills.join("my-skill").is_symlink(), "symlink should exist");
-        assert!(skills.join("my-skill").is_dir(), "symlink should be valid");
+        assert_eq!(code, 0, "dev should exit 0, stderr: {}", stderr);
+        // dev auto-discovers skills from the real project and symlinks them
+        let count = std::fs::read_dir(&skills).unwrap().count();
+        assert!(count > 0, "dev should create at least one symlink, got {}", count);
     }
 }

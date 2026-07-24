@@ -48,7 +48,7 @@ A self-contained tarball distribution model where `curl -sSL <url>/install.sh | 
 
 The tarball `autopilot-toolkit-<git-hash>.tar.gz` contains:
 - `skills/` — all agnostic, coupled (with all variant subdirectories and fallback SKILL.md), and upstream skill directories
-- `.autopilot/` — install.sh, bootstrap.sh, manifest.json, .version, .skill-lock.json
+- `.autopilot/` — bootstrap.sh, manifest.json, .version, .skill-lock.json
 - `principles/` — deployed to `~/.agents/principles/`
 
 ### install.sh behavior

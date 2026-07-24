@@ -18,7 +18,7 @@ The build command must:
 
 - [ ] `install.rs build` produces a tarball at `dist/autopilot-toolkit-<hash>.tar.gz`
 - [ ] Tarball contains `skills/` with all autopilot (agnostic + coupled with all variant subdirectories) and upstream skill directories
-- [ ] Tarball contains `.autopilot/` with install.sh, bootstrap.sh, manifest.json, .version, .skill-lock.json
+- [ ] Tarball contains `.autopilot/` with bootstrap.sh, manifest.json, .version, .skill-lock.json
 - [ ] Tarball contains `principles/`
 - [ ] `manifest.json` correctly classifies each skill (type, variants, codex_agent)
 - [ ] `.version` matches `git rev-parse HEAD`
