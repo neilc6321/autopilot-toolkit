@@ -26,7 +26,7 @@ fn usage() -> ! {
     println!("Subcommands:");
     println!("  dev                     Symlink all skills from source tree into agent dirs");
     println!("  pack                    Build a self-contained tarball into dist/");
-    println!("  release                 Pack + push to GitHub Releases (not yet implemented)");
+    println!("  release                 Pack + push to GitHub Releases");
     println!("  dev-clean               Remove all dev symlinks from agent dirs");
     println!("  link-principles <src>   Ensure ~/.agents/principles is a symlink to <src>");
     std::process::exit(1);
@@ -408,10 +408,22 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
         anyhow::bail!("tar exited with error");
     }
 
+    // Also save install.sh as standalone file in dist/ for curl | bash
+    let install_sh_path = dist_dir.join("install.sh");
+    std::fs::write(&install_sh_path, &install_content)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&install_sh_path)?.permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&install_sh_path, perms)?;
+    }
+
     // Clean up staging
     std::fs::remove_dir_all(&staging)?;
 
     println!("Built: {}", tarball_path.display());
+    println!("Install script: {}", install_sh_path.display());
     Ok(())
 }
 
@@ -589,6 +601,66 @@ fn dev_clean(
 }
 
 
+fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
+    // Check gh is available
+    let gh_check = Command::new("which").arg("gh").output();
+    if gh_check.is_err() || !gh_check.unwrap().status.success() {
+        anyhow::bail!("gh CLI not found — install it from https://cli.github.com");
+    }
+
+    // Must be on a tag
+    let tag = String::from_utf8(
+        Command::new("git")
+            .args(&["describe", "--tags", "--exact-match"])
+            .current_dir(project_root)
+            .output()
+            .context("git describe failed")?
+            .stdout,
+    )
+    .context("invalid UTF-8 from git describe")?
+    .trim()
+    .to_string();
+
+    if tag.is_empty() {
+        anyhow::bail!("not on a git tag — create and push a tag first, e.g.: git tag v1.0.0 && git push origin v1.0.0");
+    }
+
+    println!("==> Releasing {}", tag);
+
+    // Build the tarball
+    pack_command(project_root)?;
+
+    let dist_dir = project_root.join("dist");
+    let tarball = dist_dir.join(format!("autopilot-toolkit-{}.tar.gz", tag));
+    let install_script = dist_dir.join("install.sh");
+
+    if !tarball.is_file() {
+        anyhow::bail!("tarball not found at {}", tarball.display());
+    }
+
+    // Create GitHub Release and upload assets
+    let status = Command::new("gh")
+        .args(&[
+            "release", "create", &tag,
+            tarball.to_str().unwrap(),
+            install_script.to_str().unwrap(),
+            "--title", &format!("autopilot-toolkit {}", tag),
+            "--notes", &format!("autopilot-toolkit {} release.", tag),
+        ])
+        .current_dir(project_root)
+        .status()
+        .context("gh release create failed")?;
+
+    if !status.success() {
+        anyhow::bail!("gh release create exited with error");
+    }
+
+    println!("==> Released {} to GitHub", tag);
+    println!("   Install: curl -sSL https://github.com/neilc6321/autopilot-toolkit/releases/download/{}/install.sh | bash", tag);
+    Ok(())
+}
+
+
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
 
@@ -648,8 +720,10 @@ fn main() -> anyhow::Result<()> {
             pack_command(&project_root)?;
         }
         "release" => {
-            eprintln!("release subcommand not yet implemented — use pack for now");
-            std::process::exit(1);
+            if !positional.is_empty() {
+                warn(&format!("ignoring extra arguments: {:?}", positional));
+            }
+            release_command(&project_root)?;
         }
         "dev" => {
             if !positional.is_empty() {
