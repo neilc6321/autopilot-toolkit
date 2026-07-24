@@ -599,8 +599,8 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let repo_slug = get_repo_slug(project_root)?;
 
     // Skip if release already exists
-    if Command::new("gh").args(&["release", "view", &tag])
-        .current_dir(project_root).status().is_ok()
+    if Command::new("gh").args(&["release", "view", &tag, "-R", &repo_slug])
+        .current_dir(project_root).status().map(|s| s.success()).unwrap_or(false)
     {
         println!("==> Release {} already exists, skipping.", tag);
         return Ok(());
@@ -625,6 +625,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let status = Command::new("gh")
         .args(&["release", "create", &tag,
             tarball.to_str().unwrap(), install_script.to_str().unwrap(),
+            "-R", &repo_slug,
             "--title", &format!("autopilot-toolkit {}", short),
             "--notes", &format!("Commit: {}\n\nInstall:\n```\ncurl -sSL https://github.com/{}/releases/download/{}/install.sh | bash\n```", short, repo_slug, tag),
         ])
