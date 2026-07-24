@@ -204,7 +204,7 @@ struct Manifest {
 
 fn get_version(project_root: &Path) -> Result<String, anyhow::Error> {
     let output = Command::new("git")
-        .args(&["-C", &project_root.to_string_lossy(), "rev-parse", "HEAD"])
+        .args(["-C", &project_root.to_string_lossy(), "rev-parse", "HEAD"])
         .output()
         .context("git rev-parse HEAD failed — are you in a git repository?")?;
     if !output.status.success() {
@@ -219,7 +219,7 @@ fn get_version(project_root: &Path) -> Result<String, anyhow::Error> {
 fn get_repo_slug(project_root: &Path) -> Result<String, anyhow::Error> {
     let remote_url = String::from_utf8(
         Command::new("git")
-            .args(&["remote", "get-url", "origin"])
+            .args(["remote", "get-url", "origin"])
             .current_dir(project_root)
             .output()
             .context("git remote get-url failed")?
@@ -407,7 +407,7 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let tarball_path = dist_dir.join(&tarball_name);
 
     let status = Command::new("tar")
-        .args(&[
+        .args([
             "-czf",
             &tarball_path.to_string_lossy(),
             "-C",
@@ -637,7 +637,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     // Use short hash as tag — no manual tagging needed
     let hash = String::from_utf8(
         Command::new("git")
-            .args(&["rev-parse", "HEAD"])
+            .args(["rev-parse", "HEAD"])
             .current_dir(project_root)
             .output()?
             .stdout,
@@ -650,7 +650,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
 
     // Skip if release already exists
     if Command::new("gh")
-        .args(&["release", "view", &tag, "-R", &repo_slug])
+        .args(["release", "view", &tag, "-R", &repo_slug])
         .current_dir(project_root)
         .status()
         .map(|s| s.success())
@@ -682,7 +682,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
 
     // Create GitHub Release
     let status = Command::new("gh")
-        .args(&["release", "create", &tag,
+        .args(["release", "create", &tag,
             tarball.to_str().unwrap(), install_script.to_str().unwrap(),
             project_root.join("templates").join("uninstall.sh").to_str().unwrap(),
             "-R", &repo_slug,

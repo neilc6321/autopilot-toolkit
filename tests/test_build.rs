@@ -109,7 +109,7 @@ mod tests {
         let git_hash = git_rev_parse(&root);
         assert!(!git_hash.is_empty(), "git rev-parse should return a hash");
 
-        let tarball_name = format!("autopilot-toolkit-{}.tar.gz", git_hash);
+        let tarball_name = "autopilot-toolkit.tar.gz".to_string();
         let tarball_path = dist_dir.join(&tarball_name);
 
         // Run build
@@ -133,6 +133,7 @@ mod tests {
 
     #[test]
     fn build_tarball_structure_and_metadata() {
+        let _ = std::fs::remove_dir_all(project_root().join("dist"));
         let root = project_root();
         let git_hash = git_rev_parse(&root);
         assert!(!git_hash.is_empty());
@@ -145,7 +146,7 @@ mod tests {
         let (_out, _err, code) = run_build(&["pack"], Some(&root));
         assert_eq!(code, 0);
 
-        let tarball_path = dist_dir.join(format!("autopilot-toolkit-{}.tar.gz", git_hash));
+        let tarball_path = dist_dir.join("autopilot-toolkit.tar.gz".to_string());
         assert!(tarball_path.is_file());
 
         // Extract to temp dir
@@ -358,6 +359,7 @@ mod tests {
 
     #[test]
     fn build_creates_dist_dir_if_missing() {
+        let _ = std::fs::remove_dir_all(project_root().join("dist"));
         let root = project_root();
         let dist_dir = root.join("dist");
 
@@ -459,11 +461,7 @@ mod tests {
         let tmp = tempfile::tempdir().expect("tempdir");
         let home = tmp.path().join("home");
         let skills = home.join(".agents/skills");
-        let src = tmp.path().join("source-skills/my-skill");
-        fs::create_dir_all(&src).unwrap();
-        fs::write(src.join("SKILL.md"), "# My Skill\n").unwrap();
 
-        let root = project_root();
         let script = install_script();
 
         let mut cmd = Command::new("rust-script");
