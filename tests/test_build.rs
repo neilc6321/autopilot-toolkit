@@ -109,8 +109,8 @@ mod tests {
         let git_hash = git_rev_parse(&root);
         assert!(!git_hash.is_empty(), "git rev-parse should return a hash");
 
-        let tarball_name = "autopilot-toolkit.tar.gz".to_string();
-        let tarball_path = dist_dir.join(&tarball_name);
+        let tarball_name = "autopilot-toolkit.tar.gz";
+        let tarball_path = dist_dir.join(tarball_name);
 
         // Run build
         let (out, err, code) = run_build(&["pack"], Some(&root));
@@ -146,7 +146,7 @@ mod tests {
         let (_out, _err, code) = run_build(&["pack"], Some(&root));
         assert_eq!(code, 0);
 
-        let tarball_path = dist_dir.join("autopilot-toolkit.tar.gz".to_string());
+        let tarball_path = dist_dir.join("autopilot-toolkit.tar.gz");
         assert!(tarball_path.is_file());
 
         // Extract to temp dir
