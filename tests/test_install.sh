@@ -9,7 +9,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # We need a built install.sh — use the build pipeline output
 TARBALL_DIR="${SCRIPT_DIR}/../dist"
-TARBALL_NAME=$(ls "${TARBALL_DIR}"/autopilot-toolkit-*.tar.gz | head -1 | xargs basename)
+TARBALL_NAME="autopilot-toolkit.tar.gz"
 FULL_TARBALL="${TARBALL_DIR}/${TARBALL_NAME}"
 
 PASS=0

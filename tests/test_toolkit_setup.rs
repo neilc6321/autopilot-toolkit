@@ -825,9 +825,7 @@ fn run_toolkit_setup_execute_targeted(
     // legitimate shared-dir residents for EVERY target — never orphan them.
     let shared_expected_names: Vec<&str> = expected
         .iter()
-        .filter(|(_, src)| {
-            categorize_skill(src) == "agnostic" || has_skill_variant(src, "kimi")
-        })
+        .filter(|(_, src)| categorize_skill(src) == "agnostic" || has_skill_variant(src, "kimi"))
         .map(|(n, _)| n.as_str())
         .collect();
     let target_expected_names: Vec<&str> = expected
@@ -1846,9 +1844,7 @@ mod tests {
 
         let kimi_variant_names: Vec<&str> = expected
             .iter()
-            .filter(|(_, src)| {
-                categorize_skill(src) == "coupled" && has_skill_variant(src, "kimi")
-            })
+            .filter(|(_, src)| categorize_skill(src) == "coupled" && has_skill_variant(src, "kimi"))
             .map(|(n, _)| n.as_str())
             .collect();
         assert_eq!(

@@ -730,7 +730,11 @@ mod tests {
         let skill_dir = root.join("skills/autopilot/fixture-skill");
         for dir in variant_dirs {
             fs::create_dir_all(skill_dir.join(dir)).unwrap();
-            fs::write(skill_dir.join(dir).join("SKILL.md"), "---\nname: fixture-skill\ndescription: fixture\n---\n").unwrap();
+            fs::write(
+                skill_dir.join(dir).join("SKILL.md"),
+                "---\nname: fixture-skill\ndescription: fixture\n---\n",
+            )
+            .unwrap();
         }
         let mut skills = Vec::new();
         discover_autopilot(&root, &mut skills);
@@ -769,10 +773,12 @@ mod tests {
         assert!(
             root_fixture.is_empty(),
             "variant dir without SKILL.md must not be discovered, got: {:?}",
-            root_fixture.iter().map(|s| &s.relative_path).collect::<Vec<_>>()
+            root_fixture
+                .iter()
+                .map(|s| &s.relative_path)
+                .collect::<Vec<_>>()
         );
     }
-
 
     #[test]
     fn discovers_reasonix_variants_for_coupled_skills() {

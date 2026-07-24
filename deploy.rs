@@ -6,22 +6,20 @@
 //! anyhow = "1"
 //! ```
 
+use anyhow::Context;
 use serde::Serialize;
 use std::collections::BTreeMap;
-use std::process::Command;
-use anyhow::Context;
 use std::env;
 use std::os::unix::fs::symlink;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 fn warn(msg: &str) {
     eprintln!("WARNING: {}", msg);
 }
 
 fn usage() -> ! {
-    println!(
-        "Usage: deploy.rs <subcommand> [args...]"
-    );
+    println!("Usage: deploy.rs <subcommand> [args...]");
     println!();
     println!("Subcommands:");
     println!("  dev                     Symlink all skills from source tree into agent dirs");
@@ -31,7 +29,6 @@ fn usage() -> ! {
     println!("  link-principles <src>   Ensure ~/.agents/principles is a symlink to <src>");
     std::process::exit(1);
 }
-
 
 fn sync_skill(name: &str, src: &Path, skills_dir: &Path) -> Result<(), anyhow::Error> {
     let target = skills_dir.join(name);
@@ -84,7 +81,6 @@ fn sync_skill(name: &str, src: &Path, skills_dir: &Path) -> Result<(), anyhow::E
 
     Ok(())
 }
-
 
 fn link_principles(src: &Path, principles_dir: &Path) -> Result<(), anyhow::Error> {
     let target = principles_dir;
@@ -242,7 +238,6 @@ fn get_repo_slug(project_root: &Path) -> Result<String, anyhow::Error> {
     }
 }
 
-
 fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let version = get_version(project_root)?;
     let dist_dir = project_root.join("dist");
@@ -285,17 +280,23 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
             if has_variants {
                 let variants = list_variants(&src_dir);
                 let codex_agent = src_dir.join("codex").join("agent.toml").is_file();
-                manifest.skills.insert(skill_name_str.clone(), ManifestSkill {
-                    skill_type: "coupled".to_string(),
-                    variants,
-                    codex_agent,
-                });
+                manifest.skills.insert(
+                    skill_name_str.clone(),
+                    ManifestSkill {
+                        skill_type: "coupled".to_string(),
+                        variants,
+                        codex_agent,
+                    },
+                );
             } else {
-                manifest.skills.insert(skill_name_str.clone(), ManifestSkill {
-                    skill_type: "agnostic".to_string(),
-                    variants: vec![],
-                    codex_agent: false,
-                });
+                manifest.skills.insert(
+                    skill_name_str.clone(),
+                    ManifestSkill {
+                        skill_type: "agnostic".to_string(),
+                        variants: vec![],
+                        codex_agent: false,
+                    },
+                );
             }
 
             // Copy skill directory into staging
@@ -307,8 +308,8 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let lock_path = project_root.join(".skill-lock.json");
     if lock_path.is_file() {
         let lock_bytes = std::fs::read_to_string(&lock_path)?;
-        let lock: serde_json::Value = serde_json::from_str(&lock_bytes)
-            .context("failed to parse .skill-lock.json")?;
+        let lock: serde_json::Value =
+            serde_json::from_str(&lock_bytes).context("failed to parse .skill-lock.json")?;
 
         if let Some(skills_map) = lock.get("skills").and_then(|s| s.as_object()) {
             for (skill_name, skill_entry) in skills_map {
@@ -317,18 +318,28 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
                     // skillPath is like "skills/engineering/diagnosing-bugs/SKILL.md"
                     // The source dir is the parent of SKILL.md, relative to skills/upstream/
                     let src_parent = Path::new(skill_path).parent().unwrap_or(Path::new(""));
-                    let src_dir = project_root.join("skills").join("upstream").join(src_parent);
+                    let src_dir = project_root
+                        .join("skills")
+                        .join("upstream")
+                        .join(src_parent);
 
                     if src_dir.is_dir() {
                         // Copy upstream skill dir (flat name) into staging
                         copy_dir_all(&src_dir, &skills_staging.join(skill_name))?;
-                        manifest.skills.insert(skill_name.clone(), ManifestSkill {
-                            skill_type: "upstream".to_string(),
-                            variants: vec![],
-                            codex_agent: false,
-                        });
+                        manifest.skills.insert(
+                            skill_name.clone(),
+                            ManifestSkill {
+                                skill_type: "upstream".to_string(),
+                                variants: vec![],
+                                codex_agent: false,
+                            },
+                        );
                     } else {
-                        eprintln!("WARNING: upstream skill '{}' source dir missing ({}), skipping", skill_name, src_dir.display());
+                        eprintln!(
+                            "WARNING: upstream skill '{}' source dir missing ({}), skipping",
+                            skill_name,
+                            src_dir.display()
+                        );
                     }
                 }
             }
@@ -364,7 +375,8 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(autopilot_staging.join("bootstrap.sh"))?.permissions();
+            let mut perms =
+                std::fs::metadata(autopilot_staging.join("bootstrap.sh"))?.permissions();
             perms.set_mode(0o755);
             std::fs::set_permissions(autopilot_staging.join("bootstrap.sh"), perms)?;
         }
@@ -377,7 +389,8 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(autopilot_staging.join("uninstall.sh"))?.permissions();
+            let mut perms =
+                std::fs::metadata(autopilot_staging.join("uninstall.sh"))?.permissions();
             perms.set_mode(0o755);
             std::fs::set_permissions(autopilot_staging.join("uninstall.sh"), perms)?;
         }
@@ -394,7 +407,13 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let tarball_path = dist_dir.join(&tarball_name);
 
     let status = Command::new("tar")
-        .args(&["-czf", &tarball_path.to_string_lossy(), "-C", &staging.to_string_lossy(), "."])
+        .args(&[
+            "-czf",
+            &tarball_path.to_string_lossy(),
+            "-C",
+            &staging.to_string_lossy(),
+            ".",
+        ])
         .status()
         .context("tar command failed — is tar installed?")?;
 
@@ -488,8 +507,12 @@ fn dev_all(
                     };
                     // Only symlink if the runtime directory exists on this machine
                     let runtime_home = match variant.as_str() {
-                        "reasonix" => std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".reasonix")),
-                        "codex" => std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".codex")),
+                        "reasonix" => std::env::var("HOME")
+                            .ok()
+                            .map(|h| PathBuf::from(h).join(".reasonix")),
+                        "codex" => std::env::var("HOME")
+                            .ok()
+                            .map(|h| PathBuf::from(h).join(".codex")),
                         "kimi" => Some(PathBuf::from("/")), // always assume kimi
                         _ => None,
                     };
@@ -522,18 +545,24 @@ fn dev_all(
     let lock_path = project_root.join(".skill-lock.json");
     if lock_path.is_file() {
         let lock_bytes = std::fs::read_to_string(&lock_path)?;
-        let lock: serde_json::Value = serde_json::from_str(&lock_bytes)
-            .context("failed to parse .skill-lock.json")?;
+        let lock: serde_json::Value =
+            serde_json::from_str(&lock_bytes).context("failed to parse .skill-lock.json")?;
         if let Some(skills_map) = lock.get("skills").and_then(|s| s.as_object()) {
             for (skill_name, skill_entry) in skills_map {
                 if let Some(skill_path) = skill_entry.get("skillPath").and_then(|s| s.as_str()) {
                     let src_parent = Path::new(skill_path).parent().unwrap_or(Path::new(""));
-                    let src_dir = project_root.join("skills").join("upstream").join(src_parent);
+                    let src_dir = project_root
+                        .join("skills")
+                        .join("upstream")
+                        .join(src_parent);
                     if src_dir.is_dir() {
                         sync_skill(skill_name, &src_dir, shared_skills_dir)?;
                         count += 1;
                     } else {
-                        eprintln!("WARNING: upstream skill '{}' source dir missing, skipping", skill_name);
+                        eprintln!(
+                            "WARNING: upstream skill '{}' source dir missing, skipping",
+                            skill_name
+                        );
                     }
                 }
             }
@@ -594,25 +623,38 @@ fn dev_clean(
     Ok(())
 }
 
-
 fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     // Check gh is available
-    if !Command::new("which").arg("gh").output().map(|o| o.status.success()).unwrap_or(false) {
+    if !Command::new("which")
+        .arg("gh")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+    {
         anyhow::bail!("gh CLI not found — install it from https://cli.github.com");
     }
 
     // Use short hash as tag — no manual tagging needed
     let hash = String::from_utf8(
-        Command::new("git").args(&["rev-parse", "HEAD"])
-            .current_dir(project_root).output()?.stdout,
-    )?.trim().to_string();
+        Command::new("git")
+            .args(&["rev-parse", "HEAD"])
+            .current_dir(project_root)
+            .output()?
+            .stdout,
+    )?
+    .trim()
+    .to_string();
     let short = &hash[..8.min(hash.len())];
     let tag = format!("v-{}", short);
     let repo_slug = get_repo_slug(project_root)?;
 
     // Skip if release already exists
-    if Command::new("gh").args(&["release", "view", &tag, "-R", &repo_slug])
-        .current_dir(project_root).status().map(|s| s.success()).unwrap_or(false)
+    if Command::new("gh")
+        .args(&["release", "view", &tag, "-R", &repo_slug])
+        .current_dir(project_root)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
     {
         println!("==> Release {} already exists, skipping.", tag);
         return Ok(());
@@ -629,8 +671,13 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
 
     // Create and push lightweight tag
     for args in &[vec!["tag", "-f", &tag], vec!["push", "origin", &tag]] {
-        let s = Command::new("git").args(args).current_dir(project_root).status()?;
-        if !s.success() { anyhow::bail!("git {:?} failed", args); }
+        let s = Command::new("git")
+            .args(args)
+            .current_dir(project_root)
+            .status()?;
+        if !s.success() {
+            anyhow::bail!("git {:?} failed", args);
+        }
     }
 
     // Create GitHub Release
@@ -643,13 +690,17 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
             "--notes", &format!("Commit: {}\n\nInstall:\n```\ncurl -sSL https://github.com/{}/releases/download/{}/install.sh | bash\n```", short, repo_slug, tag),
         ])
         .current_dir(project_root).status()?;
-    if !status.success() { anyhow::bail!("gh release create failed"); }
+    if !status.success() {
+        anyhow::bail!("gh release create failed");
+    }
 
     println!("==> Released {}", tag);
-    println!("   curl -sSL https://github.com/{}/releases/latest/download/install.sh | bash", repo_slug);
+    println!(
+        "   curl -sSL https://github.com/{}/releases/latest/download/install.sh | bash",
+        repo_slug
+    );
     Ok(())
 }
-
 
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -718,13 +769,25 @@ fn main() -> anyhow::Result<()> {
             if !positional.is_empty() {
                 warn(&format!("ignoring extra arguments: {:?}", positional));
             }
-            dev_all(&project_root, &shared_skills_dir, &reasonix_skills_dir, &codex_skills_dir, &codex_agents_dir)?;
+            dev_all(
+                &project_root,
+                &shared_skills_dir,
+                &reasonix_skills_dir,
+                &codex_skills_dir,
+                &codex_agents_dir,
+            )?;
         }
         "dev-clean" => {
             if !positional.is_empty() {
                 warn(&format!("ignoring extra arguments: {:?}", positional));
             }
-            dev_clean(&project_root, &shared_skills_dir, &reasonix_skills_dir, &codex_skills_dir, &codex_agents_dir)?;
+            dev_clean(
+                &project_root,
+                &shared_skills_dir,
+                &reasonix_skills_dir,
+                &codex_skills_dir,
+                &codex_agents_dir,
+            )?;
         }
         "link-principles" => {
             if positional.len() != 1 {

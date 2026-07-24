@@ -115,10 +115,20 @@ mod tests {
         // Run build
         let (out, err, code) = run_build(&["pack"], Some(&root));
 
-        assert_eq!(code, 0, "pack should exit 0, stderr: {}, stdout: {}", err, out);
+        assert_eq!(
+            code, 0,
+            "pack should exit 0, stderr: {}, stdout: {}",
+            err, out
+        );
 
         // AC 1: tarball exists
-        assert!(tarball_path.is_file(), "tarball not found at {:?}, stdout: {}, stderr: {}", tarball_path, out, err);
+        assert!(
+            tarball_path.is_file(),
+            "tarball not found at {:?}, stdout: {}, stderr: {}",
+            tarball_path,
+            out,
+            err
+        );
     }
 
     #[test]
@@ -144,7 +154,12 @@ mod tests {
         fs::create_dir_all(&extract_dir).unwrap();
 
         let status = Command::new("tar")
-            .args(&["-xzf", &tarball_path.to_string_lossy(), "-C", &extract_dir.to_string_lossy()])
+            .args(&[
+                "-xzf",
+                &tarball_path.to_string_lossy(),
+                "-C",
+                &extract_dir.to_string_lossy(),
+            ])
             .status()
             .expect("tar extract failed");
         assert!(status.success(), "tar extract should succeed");
@@ -154,10 +169,22 @@ mod tests {
         let autopilot_dir = extract_dir.join(".autopilot");
         assert!(autopilot_dir.is_dir(), ".autopilot/ should exist");
 
-        assert!(autopilot_dir.join("bootstrap.sh").is_file(), ".autopilot/bootstrap.sh should exist");
-        assert!(autopilot_dir.join("manifest.json").is_file(), ".autopilot/manifest.json should exist");
-        assert!(autopilot_dir.join(".version").is_file(), ".autopilot/.version should exist");
-        assert!(autopilot_dir.join(".skill-lock.json").is_file(), ".autopilot/.skill-lock.json should exist");
+        assert!(
+            autopilot_dir.join("bootstrap.sh").is_file(),
+            ".autopilot/bootstrap.sh should exist"
+        );
+        assert!(
+            autopilot_dir.join("manifest.json").is_file(),
+            ".autopilot/manifest.json should exist"
+        );
+        assert!(
+            autopilot_dir.join(".version").is_file(),
+            ".autopilot/.version should exist"
+        );
+        assert!(
+            autopilot_dir.join(".skill-lock.json").is_file(),
+            ".autopilot/.skill-lock.json should exist"
+        );
 
         // ── AC 7: dist/install.sh is executable and embeds correct version ──
         let install_sh = project_root().join("dist").join("install.sh");
@@ -165,21 +192,29 @@ mod tests {
         let metadata = fs::metadata(&install_sh).unwrap();
         // Check executable bit (on Unix)
         use std::os::unix::fs::PermissionsExt;
-        assert!(metadata.permissions().mode() & 0o111 != 0, "install.sh should be executable");
+        assert!(
+            metadata.permissions().mode() & 0o111 != 0,
+            "install.sh should be executable"
+        );
 
         let install_content = fs::read_to_string(&install_sh).unwrap();
-        assert!(install_content.contains(&git_hash),
+        assert!(
+            install_content.contains(&git_hash),
             "install.sh should contain version hash '{}', got content: ...{}...",
             git_hash,
             &install_content[..install_content.len().min(200)]
         );
-        assert!(!install_content.contains("__VERSION__"),
+        assert!(
+            !install_content.contains("__VERSION__"),
             "install.sh should not contain raw __VERSION__ placeholder"
         );
 
         // ── AC 6: .version matches git rev-parse HEAD ──
         let version_file = autopilot_dir.join(".version");
-        let version_content = fs::read_to_string(&version_file).unwrap().trim().to_string();
+        let version_content = fs::read_to_string(&version_file)
+            .unwrap()
+            .trim()
+            .to_string();
         assert_eq!(version_content, git_hash, ".version should match git hash");
 
         // ── AC 2: skills/ directory structure ──
@@ -187,72 +222,137 @@ mod tests {
         assert!(skills_dir.is_dir(), "skills/ should exist");
 
         // ── AC 4: principles/ exists ──
-        assert!(extract_dir.join("principles").is_dir(), "principles/ should exist");
+        assert!(
+            extract_dir.join("principles").is_dir(),
+            "principles/ should exist"
+        );
 
         // ── AC 5: manifest.json classification ──
         let manifest_path = autopilot_dir.join("manifest.json");
         let manifest_bytes = fs::read_to_string(&manifest_path).unwrap();
-        let manifest: Manifest = serde_json::from_str(&manifest_bytes)
-            .expect("manifest.json should be valid JSON");
+        let manifest: Manifest =
+            serde_json::from_str(&manifest_bytes).expect("manifest.json should be valid JSON");
 
-        assert_eq!(manifest.version, git_hash, "manifest.version should match git hash");
+        assert_eq!(
+            manifest.version, git_hash,
+            "manifest.version should match git hash"
+        );
 
         // Check autopilot skills are present and correctly classified
         // Agnostic skills
-        assert!(manifest.skills.contains_key("toolkit-setup"), "toolkit-setup should be in manifest");
+        assert!(
+            manifest.skills.contains_key("toolkit-setup"),
+            "toolkit-setup should be in manifest"
+        );
         let tks = &manifest.skills["toolkit-setup"];
-        assert_eq!(tks.skill_type, "agnostic", "toolkit-setup should be agnostic");
+        assert_eq!(
+            tks.skill_type, "agnostic",
+            "toolkit-setup should be agnostic"
+        );
         assert!(!tks.codex_agent, "toolkit-setup should not be codex_agent");
 
-        assert!(manifest.skills.contains_key("zoom-out"), "zoom-out should be in manifest");
+        assert!(
+            manifest.skills.contains_key("zoom-out"),
+            "zoom-out should be in manifest"
+        );
         let zo = &manifest.skills["zoom-out"];
         assert_eq!(zo.skill_type, "agnostic", "zoom-out should be agnostic");
 
         // Coupled skills
-        for coupled_name in &["autopilot-implementer", "autopilot-reviewer", "autopilot-orchestrator", "audit-autopilot"] {
-            assert!(manifest.skills.contains_key(*coupled_name),
-                "{} should be in manifest", coupled_name);
+        for coupled_name in &[
+            "autopilot-implementer",
+            "autopilot-reviewer",
+            "autopilot-orchestrator",
+            "audit-autopilot",
+        ] {
+            assert!(
+                manifest.skills.contains_key(*coupled_name),
+                "{} should be in manifest",
+                coupled_name
+            );
             let entry = &manifest.skills[*coupled_name];
-            assert_eq!(entry.skill_type, "coupled",
-                "{} should be coupled, got {}", coupled_name, entry.skill_type);
-            assert!(!entry.variants.is_empty(),
-                "{} should have variants", coupled_name);
+            assert_eq!(
+                entry.skill_type, "coupled",
+                "{} should be coupled, got {}",
+                coupled_name, entry.skill_type
+            );
+            assert!(
+                !entry.variants.is_empty(),
+                "{} should have variants",
+                coupled_name
+            );
         }
 
         // implementer and reviewer should have codex_agent = true
-        assert!(manifest.skills["autopilot-implementer"].codex_agent,
-            "implementer should be codex_agent");
-        assert!(manifest.skills["autopilot-reviewer"].codex_agent,
-            "reviewer should be codex_agent");
+        assert!(
+            manifest.skills["autopilot-implementer"].codex_agent,
+            "implementer should be codex_agent"
+        );
+        assert!(
+            manifest.skills["autopilot-reviewer"].codex_agent,
+            "reviewer should be codex_agent"
+        );
 
         // Check upstream skills are present
         let upstream_expected = &[
-            "diagnosing-bugs", "grill-with-docs", "improve-codebase-architecture",
-            "prototype", "setup-matt-pocock-skills", "tdd", "to-issues", "to-prd",
-            "triage", "ask-matt", "codebase-design", "domain-modeling", "implement",
-            "resolving-merge-conflicts", "grill-me", "grilling", "handoff", "teach",
+            "diagnosing-bugs",
+            "grill-with-docs",
+            "improve-codebase-architecture",
+            "prototype",
+            "setup-matt-pocock-skills",
+            "tdd",
+            "to-issues",
+            "to-prd",
+            "triage",
+            "ask-matt",
+            "codebase-design",
+            "domain-modeling",
+            "implement",
+            "resolving-merge-conflicts",
+            "grill-me",
+            "grilling",
+            "handoff",
+            "teach",
             "writing-great-skills",
         ];
         for name in upstream_expected {
-            assert!(manifest.skills.contains_key(*name),
-                "upstream skill '{}' should be in manifest", name);
+            assert!(
+                manifest.skills.contains_key(*name),
+                "upstream skill '{}' should be in manifest",
+                name
+            );
             let entry = &manifest.skills[*name];
-            assert_eq!(entry.skill_type, "upstream",
-                "'{}' should be upstream, got {}", name, entry.skill_type);
+            assert_eq!(
+                entry.skill_type, "upstream",
+                "'{}' should be upstream, got {}",
+                name, entry.skill_type
+            );
             assert!(!entry.codex_agent, "'{}' should not be codex_agent", name);
         }
 
         // Verify upstream skill dirs exist as flat directories in skills/
         for name in upstream_expected {
-            assert!(skills_dir.join(name).is_dir(),
-                "skills/{} directory should exist for upstream skill", name);
+            assert!(
+                skills_dir.join(name).is_dir(),
+                "skills/{} directory should exist for upstream skill",
+                name
+            );
         }
 
         // Verify all autopilot skill dirs exist
-        for name in &["toolkit-setup", "zoom-out", "autopilot-implementer",
-            "autopilot-reviewer", "autopilot-orchestrator", "audit-autopilot"] {
-            assert!(skills_dir.join(name).is_dir(),
-                "skills/{} directory should exist for autopilot skill", name);
+        for name in &[
+            "toolkit-setup",
+            "zoom-out",
+            "autopilot-implementer",
+            "autopilot-reviewer",
+            "autopilot-orchestrator",
+            "audit-autopilot",
+        ] {
+            assert!(
+                skills_dir.join(name).is_dir(),
+                "skills/{} directory should exist for autopilot skill",
+                name
+            );
         }
     }
 
@@ -310,7 +410,11 @@ mod tests {
             let mock_skills = mock_root.join("skills");
             // Use cp -r for recursive copy
             let status = Command::new("cp")
-                .args(&["-r", &real_skills.to_string_lossy(), &mock_skills.to_string_lossy()])
+                .args(&[
+                    "-r",
+                    &real_skills.to_string_lossy(),
+                    &mock_skills.to_string_lossy(),
+                ])
                 .status()
                 .expect("cp failed");
             assert!(status.success());
@@ -320,7 +424,11 @@ mod tests {
         let real_principles = project_root().join("principles");
         if real_principles.exists() {
             let status = Command::new("cp")
-                .args(&["-r", &real_principles.to_string_lossy(), &mock_root.join("principles").to_string_lossy()])
+                .args(&[
+                    "-r",
+                    &real_principles.to_string_lossy(),
+                    &mock_root.join("principles").to_string_lossy(),
+                ])
                 .status()
                 .expect("cp failed");
             assert!(status.success());
@@ -340,7 +448,8 @@ mod tests {
         assert_ne!(code, 0, "build outside git repo should exit non-zero");
         assert!(
             stderr.to_lowercase().contains("git") || stderr.to_lowercase().contains("version"),
-            "should mention git/version error, got: {}", stderr
+            "should mention git/version error, got: {}",
+            stderr
         );
     }
 
@@ -370,6 +479,10 @@ mod tests {
         assert_eq!(code, 0, "dev should exit 0, stderr: {}", stderr);
         // dev auto-discovers skills from the real project and symlinks them
         let count = std::fs::read_dir(&skills).unwrap().count();
-        assert!(count > 0, "dev should create at least one symlink, got {}", count);
+        assert!(
+            count > 0,
+            "dev should create at least one symlink, got {}",
+            count
+        );
     }
 }
