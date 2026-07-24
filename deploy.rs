@@ -20,20 +20,14 @@ fn warn(msg: &str) {
 
 fn usage() -> ! {
     println!(
-        "Usage: deploy.rs <subcommand> [args...] [--target reasonix|codex] [--shared] [--agent]"
+        "Usage: deploy.rs <subcommand> [args...] [--target reasonix|codex] [--shared] [--agent] (for pack only)"
     );
     println!();
     println!("Subcommands:");
-    println!("  dev <name> <src>        Local dev: symlink agent skills dir to source tree");
-    println!("                           --target reasonix|codex: agent-exclusive directory");
-    println!("                           --shared: ~/.agents/skills/ (default for agnostic)");
-    println!("                           --agent: ~/.codex/agents/<name>.toml (Codex only)");
+    println!("  dev                     Symlink all skills from source tree into agent dirs");
     println!("  pack                    Build a self-contained tarball into dist/");
     println!("  release                 Pack + push to GitHub Releases (not yet implemented)");
-    println!("  unlink <name>           Remove a toolkit-owned symlink from skills/agents dirs");
-    println!("                           --target reasonix|codex: only that target");
-    println!("                           --shared: only ~/.agents/skills/");
-    println!("                           --agent: ~/.codex/agents/<name>.toml");
+    println!("  dev-clean               Remove all dev symlinks from agent dirs");
     println!("  link-principles <src>   Ensure ~/.agents/principles is a symlink to <src>");
     std::process::exit(1);
 }
@@ -126,27 +120,6 @@ fn sync_skill(name: &str, src: &Path, skills_dir: &Path) -> Result<(), anyhow::E
     Ok(())
 }
 
-fn unlink_skill(name: &str, skills_dir: &Path, project_root: &Path) -> Result<(), anyhow::Error> {
-    let target = skills_dir.join(name);
-
-    // Only operate on symlinks
-    if !target.is_symlink() {
-        return Ok(());
-    }
-
-    // Read symlink target
-    let link_target = std::fs::read_link(&target)
-        .with_context(|| format!("cannot read symlink {}", target.display()))?;
-
-    // Remove only if the symlink target is under PROJECT_ROOT
-    // Matches install.sh: case "$link_target" in "$PROJECT_ROOT"|"$PROJECT_ROOT/"*)
-    if link_target.starts_with(project_root) {
-        std::fs::remove_file(&target)
-            .with_context(|| format!("cannot remove symlink {}", target.display()))?;
-    }
-
-    Ok(())
-}
 
 fn link_principles(src: &Path, principles_dir: &Path) -> Result<(), anyhow::Error> {
     let target = principles_dir;
@@ -476,6 +449,146 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), anyhow::Error> {
     Ok(())
 }
 
+fn dev_all(
+    project_root: &Path,
+    shared_skills_dir: &Path,
+    reasonix_skills_dir: &Path,
+    codex_skills_dir: &Path,
+    codex_agents_dir: &Path,
+) -> Result<(), anyhow::Error> {
+    println!("==> Syncing all skills from source tree...");
+
+    // ── Autopilot skills ──
+    let autopilot_dir = project_root.join("skills").join("autopilot");
+    let mut count = 0u32;
+    if autopilot_dir.is_dir() {
+        for entry in std::fs::read_dir(&autopilot_dir)? {
+            let entry = entry?;
+            if !entry.file_type()?.is_dir() {
+                continue;
+            }
+            let name = entry.file_name().to_string_lossy().to_string();
+            let src_dir = entry.path();
+
+            if has_variant_dirs(&src_dir) {
+                // Coupled skill: symlink variant for each detected runtime
+                let variants = list_variants(&src_dir);
+                for variant in &variants {
+                    let target_dir = match variant.as_str() {
+                        "reasonix" => reasonix_skills_dir,
+                        "codex" => codex_skills_dir,
+                        "kimi" => shared_skills_dir,
+                        _ => continue,
+                    };
+                    // Only symlink if the runtime directory exists on this machine
+                    let runtime_home = match variant.as_str() {
+                        "reasonix" => std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".reasonix")),
+                        "codex" => std::env::var("HOME").ok().map(|h| PathBuf::from(h).join(".codex")),
+                        "kimi" => Some(PathBuf::from("/")), // always assume kimi
+                        _ => None,
+                    };
+                    if let Some(ref home) = runtime_home {
+                        if !home.exists() && variant.as_str() != "kimi" {
+                            continue;
+                        }
+                    }
+                    let variant_src = src_dir.join(variant);
+                    if variant_src.is_dir() {
+                        sync_skill(&name, &variant_src, target_dir)?;
+                        count += 1;
+                    }
+                }
+                // Codex agent.toml
+                let agent_src = src_dir.join("codex").join("agent.toml");
+                if agent_src.is_file() {
+                    sync_agent(&name, &agent_src, codex_agents_dir)?;
+                    count += 1;
+                }
+            } else {
+                // Agnostic skill
+                sync_skill(&name, &src_dir, shared_skills_dir)?;
+                count += 1;
+            }
+        }
+    }
+
+    // ── Upstream skills ──
+    let lock_path = project_root.join(".skill-lock.json");
+    if lock_path.is_file() {
+        let lock_bytes = std::fs::read_to_string(&lock_path)?;
+        let lock: serde_json::Value = serde_json::from_str(&lock_bytes)
+            .context("failed to parse .skill-lock.json")?;
+        if let Some(skills_map) = lock.get("skills").and_then(|s| s.as_object()) {
+            for (skill_name, skill_entry) in skills_map {
+                if let Some(skill_path) = skill_entry.get("skillPath").and_then(|s| s.as_str()) {
+                    let src_parent = Path::new(skill_path).parent().unwrap_or(Path::new(""));
+                    let src_dir = project_root.join("skills").join("upstream").join(src_parent);
+                    if src_dir.is_dir() {
+                        sync_skill(skill_name, &src_dir, shared_skills_dir)?;
+                        count += 1;
+                    } else {
+                        eprintln!("WARNING: upstream skill '{}' source dir missing, skipping", skill_name);
+                    }
+                }
+            }
+        }
+    }
+
+    println!("==> Done: {} symlinks created/verified.", count);
+    Ok(())
+}
+
+fn dev_clean(
+    project_root: &Path,
+    shared_skills_dir: &Path,
+    reasonix_skills_dir: &Path,
+    codex_skills_dir: &Path,
+    codex_agents_dir: &Path,
+) -> Result<(), anyhow::Error> {
+    println!("==> Removing all dev symlinks...");
+    let mut removed = 0u32;
+
+    for dir in &[shared_skills_dir, reasonix_skills_dir, codex_skills_dir] {
+        if !dir.is_dir() {
+            continue;
+        }
+        for entry in std::fs::read_dir(dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if !path.is_symlink() {
+                continue;
+            }
+            if let Ok(target) = std::fs::read_link(&path) {
+                if target.starts_with(project_root) {
+                    std::fs::remove_file(&path)?;
+                    removed += 1;
+                }
+            }
+        }
+    }
+
+    // Codex agents
+    if codex_agents_dir.is_dir() {
+        for entry in std::fs::read_dir(codex_agents_dir)? {
+            let entry = entry?;
+            let path = entry.path();
+            if !path.is_symlink() {
+                continue;
+            }
+            if let Ok(target) = std::fs::read_link(&path) {
+                if target.starts_with(project_root) {
+                    std::fs::remove_file(&path)?;
+                    removed += 1;
+                }
+            }
+        }
+    }
+
+    println!("==> Done: {} symlinks removed.", removed);
+    Ok(())
+}
+
+
 fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
 
@@ -523,39 +636,6 @@ fn main() -> anyhow::Result<()> {
     // Parse flags from the positional tail
     let (positional, target_flag, shared_flag, agent_flag) = parse_flags(rest);
 
-    // Resolve the target skills directory for sync
-    let resolve_skills_dir = || -> PathBuf {
-        if shared_flag {
-            if target_flag.is_some() {
-                warn("--shared overrides --target (shared directory takes precedence)");
-            }
-            shared_skills_dir.clone()
-        } else if let Some(ref t) = target_flag {
-            match t.as_str() {
-                "reasonix" => reasonix_skills_dir.clone(),
-                "codex" => codex_skills_dir.clone(),
-                other => {
-                    eprintln!(
-                        "ERROR: unknown --target '{}'. Expected reasonix or codex",
-                        other
-                    );
-                    usage();
-                }
-            }
-        } else {
-            reasonix_skills_dir.clone()
-        }
-    };
-
-    // All three directories for unlink-all
-    let all_skills_dirs = || -> Vec<PathBuf> {
-        vec![
-            reasonix_skills_dir.clone(),
-            codex_skills_dir.clone(),
-            shared_skills_dir.clone(),
-        ]
-    };
-
     match subcommand.as_str() {
         "pack" => {
             if target_flag.is_some() || shared_flag || agent_flag {
@@ -572,60 +652,16 @@ fn main() -> anyhow::Result<()> {
             std::process::exit(1);
         }
         "dev" => {
-            if positional.len() != 2 {
-                eprintln!(
-                    "ERROR: sync requires exactly two arguments (<name> <src>), but received {}",
-                    positional.len()
-                );
-                usage();
+            if !positional.is_empty() {
+                warn(&format!("ignoring extra arguments: {:?}", positional));
             }
-            let name = positional[0];
-            let src = PathBuf::from(positional[1]);
-
-            if agent_flag {
-                // Agent mode: file symlink in ~/.codex/agents/
-                if target_flag.as_deref() != Some("codex") {
-                    anyhow::bail!("--agent requires --target codex");
-                }
-                sync_agent(name, &src, &codex_agents_dir)?;
-            } else {
-                // Skill mode: directory symlink
-                let skills_dir = resolve_skills_dir();
-                sync_skill(name, &src, &skills_dir)?;
-            }
+            dev_all(&project_root, &shared_skills_dir, &reasonix_skills_dir, &codex_skills_dir, &codex_agents_dir)?;
         }
-        "unlink" => {
-            if positional.len() != 1 {
-                eprintln!(
-                    "ERROR: unlink requires exactly one argument (<name>), but received {}",
-                    positional.len()
-                );
-                usage();
+        "dev-clean" => {
+            if !positional.is_empty() {
+                warn(&format!("ignoring extra arguments: {:?}", positional));
             }
-            let name = positional[0];
-
-            if agent_flag {
-                // Agent mode: remove symlink from ~/.codex/agents/
-                let target = codex_agents_dir.join(format!("{}.toml", name));
-                if target.is_symlink() {
-                    let link_target = std::fs::read_link(&target)
-                        .with_context(|| format!("cannot read symlink {}", target.display()))?;
-                    if link_target.starts_with(&project_root) {
-                        std::fs::remove_file(&target).with_context(|| {
-                            format!("cannot remove symlink {}", target.display())
-                        })?;
-                    }
-                }
-            } else if target_flag.is_some() || shared_flag {
-                // Targeted unlink: clean only the specified directory
-                let skills_dir = resolve_skills_dir();
-                unlink_skill(name, &skills_dir, &project_root)?;
-            } else {
-                // Unlink from all three directories
-                for dir in &all_skills_dirs() {
-                    unlink_skill(name, dir, &project_root)?;
-                }
-            }
+            dev_clean(&project_root, &shared_skills_dir, &reasonix_skills_dir, &codex_skills_dir, &codex_agents_dir)?;
         }
         "link-principles" => {
             if positional.len() != 1 {
@@ -640,7 +676,7 @@ fn main() -> anyhow::Result<()> {
         }
         _ => {
             eprintln!(
-                "ERROR: unknown subcommand '{}'. Available: build, sync, unlink, link-principles",
+                "ERROR: unknown subcommand '{}'. Available: dev, dev-clean, pack, release, link-principles",
                 subcommand
             );
             usage();
