@@ -200,7 +200,49 @@ struct ManifestSkill {
 struct Manifest {
     version: String,
     skills: BTreeMap<String, ManifestSkill>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    executables: BTreeMap<String, ManifestExecutable>,
 }
+
+#[derive(Serialize)]
+struct ManifestExecutable {
+    platforms: BTreeMap<String, String>,
+}
+
+#[derive(Clone, Copy)]
+struct DistillTarget {
+    platform: &'static str,
+    rust_target: &'static str,
+    cargo_linker_env: Option<&'static str>,
+    linker_override_env: Option<&'static str>,
+}
+
+const DISTILL_TARGETS: &[DistillTarget] = &[
+    DistillTarget {
+        platform: "darwin-arm64",
+        rust_target: "aarch64-apple-darwin",
+        cargo_linker_env: None,
+        linker_override_env: None,
+    },
+    DistillTarget {
+        platform: "darwin-x64",
+        rust_target: "x86_64-apple-darwin",
+        cargo_linker_env: None,
+        linker_override_env: None,
+    },
+    DistillTarget {
+        platform: "linux-arm64",
+        rust_target: "aarch64-unknown-linux-musl",
+        cargo_linker_env: Some("CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER"),
+        linker_override_env: Some("DISTILL_LINUX_ARM64_LINKER"),
+    },
+    DistillTarget {
+        platform: "linux-x64",
+        rust_target: "x86_64-unknown-linux-musl",
+        cargo_linker_env: Some("CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER"),
+        linker_override_env: Some("DISTILL_LINUX_X64_LINKER"),
+    },
+];
 
 fn get_version(project_root: &Path) -> Result<String, anyhow::Error> {
     let output = Command::new("git")
@@ -268,6 +310,7 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
     let mut manifest = Manifest {
         version: version.clone(),
         skills: BTreeMap::new(),
+        executables: BTreeMap::new(),
     };
 
     // ── scan autopilot skills ──
@@ -410,6 +453,19 @@ fn pack_command(project_root: &Path) -> Result<(), anyhow::Error> {
         copy_dir_all(&principles_src, &staging.join("principles"))?;
     }
 
+    // ── stage Distill CLI executables ──
+    let distill_platforms = stage_distill_executables(project_root, &autopilot_staging)?;
+    if !distill_platforms.is_empty() {
+        manifest.executables.insert(
+            "distill".to_string(),
+            ManifestExecutable {
+                platforms: distill_platforms,
+            },
+        );
+        let manifest_json = serde_json::to_string_pretty(&manifest)?;
+        std::fs::write(autopilot_staging.join("manifest.json"), &manifest_json)?;
+    }
+
     // ── create tarball ──
     let tarball_name = "autopilot-toolkit.tar.gz".to_string();
     let tarball_path = dist_dir.join(&tarball_name);
@@ -477,6 +533,138 @@ fn copy_dir_all(src: &Path, dst: &Path) -> Result<(), anyhow::Error> {
             copy_dir_all(&entry.path(), &dest)?;
         } else {
             std::fs::copy(entry.path(), &dest)?;
+        }
+    }
+    Ok(())
+}
+
+fn stage_distill_executables(
+    project_root: &Path,
+    autopilot_staging: &Path,
+) -> Result<BTreeMap<String, String>, anyhow::Error> {
+    if !project_root
+        .join("crates")
+        .join("distill-cli")
+        .join("Cargo.toml")
+        .is_file()
+    {
+        return Ok(BTreeMap::new());
+    }
+
+    let artifacts_root = project_root.join("dist").join("distill");
+    if !all_distill_artifacts_present(&artifacts_root) {
+        for target in DISTILL_TARGETS {
+            let artifact = artifacts_root.join(target.platform).join("distill");
+            if !artifact.is_file() {
+                anyhow::bail!(
+                    "missing Distill CLI artifact for {} at {}; run `deploy.rs distill-artifacts` before `deploy.rs pack`",
+                    target.platform,
+                    artifact.display()
+                );
+            }
+        }
+    }
+
+    let mut platforms = BTreeMap::new();
+    for target in DISTILL_TARGETS {
+        let src = artifacts_root.join(target.platform).join("distill");
+        if !src.is_file() {
+            anyhow::bail!(
+                "missing Distill CLI artifact for {} at {}",
+                target.platform,
+                src.display()
+            );
+        }
+        let rel = format!("bin/distill-artifacts/{}/distill", target.platform);
+        let dest = autopilot_staging.join(&rel);
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::copy(&src, &dest)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&dest)?.permissions();
+            perms.set_mode(perms.mode() | 0o755);
+            std::fs::set_permissions(&dest, perms)?;
+        }
+        platforms.insert(target.platform.to_string(), rel);
+    }
+
+    Ok(platforms)
+}
+
+fn all_distill_artifacts_present(artifacts_root: &Path) -> bool {
+    DISTILL_TARGETS.iter().all(|target| {
+        artifacts_root
+            .join(target.platform)
+            .join("distill")
+            .is_file()
+    })
+}
+
+fn distill_artifacts_command(project_root: &Path) -> Result<(), anyhow::Error> {
+    let artifacts_root = project_root.join("dist").join("distill");
+    let cargo = env::var("DISTILL_CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let rustc = env::var("DISTILL_RUSTC").ok();
+    let linux_linker = env::var("DISTILL_LINUX_LINKER").ok();
+    for target in DISTILL_TARGETS {
+        println!(
+            "==> Building distill for {} ({})",
+            target.platform, target.rust_target
+        );
+        let mut command = Command::new(&cargo);
+        command
+            .args([
+                "build",
+                "--release",
+                "--bin",
+                "distill",
+                "--target",
+                target.rust_target,
+            ])
+            .current_dir(project_root);
+        if let Some(rustc) = &rustc {
+            command.env("RUSTC", rustc);
+        }
+        if let Some(linker_env) = target.cargo_linker_env {
+            let target_linker = target
+                .linker_override_env
+                .and_then(|name| env::var(name).ok())
+                .or_else(|| linux_linker.clone());
+            if let Some(linker) = target_linker {
+                command.env(linker_env, linker);
+            }
+        }
+        let status = command
+            .status()
+            .with_context(|| format!("cargo build failed to start for {}", target.rust_target))?;
+        if !status.success() {
+            anyhow::bail!("cargo build failed for {}", target.rust_target);
+        }
+
+        let built = project_root
+            .join("target")
+            .join(target.rust_target)
+            .join("release")
+            .join("distill");
+        let dest = artifacts_root.join(target.platform).join("distill");
+        if let Some(parent) = dest.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::copy(&built, &dest).with_context(|| {
+            format!(
+                "cannot copy Distill artifact {} -> {}",
+                built.display(),
+                dest.display()
+            )
+        })?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&dest)?.permissions();
+            perms.set_mode(perms.mode() | 0o755);
+            std::fs::set_permissions(&dest, perms)?;
         }
     }
     Ok(())
@@ -669,6 +857,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     }
 
     println!("==> Releasing {} to {}", tag, repo_slug);
+    distill_artifacts_command(project_root)?;
     pack_command(project_root)?;
 
     let tarball = project_root.join("dist").join("autopilot-toolkit.tar.gz");
@@ -766,6 +955,12 @@ fn main() -> anyhow::Result<()> {
                 warn(&format!("ignoring extra arguments: {:?}", positional));
             }
             pack_command(&project_root)?;
+        }
+        "distill-artifacts" => {
+            if !positional.is_empty() {
+                warn(&format!("ignoring extra arguments: {:?}", positional));
+            }
+            distill_artifacts_command(&project_root)?;
         }
         "release" => {
             if !positional.is_empty() {
