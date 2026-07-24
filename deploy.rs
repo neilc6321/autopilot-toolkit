@@ -621,7 +621,7 @@ fn release_command(project_root: &Path) -> Result<(), anyhow::Error> {
     println!("==> Releasing {} to {}", tag, repo_slug);
     pack_command(project_root)?;
 
-    let tarball = project_root.join("dist").join(format!("autopilot-toolkit-{}.tar.gz", hash));
+    let tarball = project_root.join("dist").join("autopilot-toolkit.tar.gz");
     let install_script = project_root.join("dist").join("install.sh");
     if !tarball.is_file() {
         anyhow::bail!("tarball not found at {}", tarball.display());
