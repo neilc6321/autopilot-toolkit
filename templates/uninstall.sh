@@ -57,7 +57,6 @@ cleanup_symlinks() {
     [[ -d "${dir}" ]] || return
     for entry in "${dir}"/*; do
         if [[ -L "${entry}" ]]; then
-            target
             target="$(readlink "${entry}" 2>/dev/null || true)"
             if [[ "${target}" == "${SKILLS_DIR}"/* ]]; then
                 rm -f "${entry}"
@@ -75,7 +74,6 @@ if [[ -d "${CODEX_AGENTS}" ]]; then
     for entry in "${CODEX_AGENTS}"/*.toml; do
         [[ -f "${entry}" ]] || continue
         if [[ -L "${entry}" ]]; then
-            target
             target="$(readlink "${entry}" 2>/dev/null || true)"
             if [[ "${target}" == "${SKILLS_DIR}"/* ]]; then
                 rm -f "${entry}"
